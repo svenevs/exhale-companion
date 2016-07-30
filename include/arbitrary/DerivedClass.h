@@ -10,6 +10,18 @@
 
 NAMESPACE_BEGIN(arbitrary)
 
+/// A bitmasking enum for determining what the current camera actions are.
+enum CAMERA_STATES {
+    /// Camera state is not changing.
+    CAM_NONE      = (1 << 0),
+    /// Camera is actively rotating.
+    CAM_ROTATE    = (1 << 1),
+    /// Camera is actively translating.
+    CAM_TRANSLATE = (1 << 2),
+    /// Camera is actively scaling.
+    CAM_SCALE     = (1 << 3)
+};
+
 /**
  * A derivation class of `BaseClass` serving as an extremely rudimentary array wrapper.
  */

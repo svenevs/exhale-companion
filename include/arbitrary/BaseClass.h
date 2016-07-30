@@ -5,7 +5,49 @@
 
 NAMESPACE_BEGIN(arbitrary)
 
+/// Documenting a define directive.
+#define AN_ARBITRARY_DEFINE 11
+
+/// Testing a nested namespace.
+namespace nested {
+    /// Just a simple coupling of two integers as x and y.
+    struct int2 {
+        /// Default constructor: (0, 0).
+        int2() : x(0), y(0) {}
+
+        /// Explicit constructor: (_x, _y).
+        int2(int _x, int _y) : x(_x), y(_y) {}
+
+        /// The first coordinate.
+        int x;
+        /// The second coordinate.
+        int y;
+    };
+
+    namespace dual_nested {
+        /// The `int3` struct is just a simple coupling of three integers as x, y, and z.
+        struct int3 {
+            /// Default constructor: (0, 0, 0).
+            int3() : x(0), y(0), z(0) {}
+
+            /// Explicit constructor: (_x, _y, _z).
+            int3(int _x, int _y, int _z) : x(_x), y(_y), z(_z) {}
+
+            /// The first coordinate.
+            int x;
+            /// The second coordinate.
+            int y;
+            /// The third coordinate.
+            int z;
+        };
+    }
+}
+
 /**
+ * \addtogroup Common
+ *
+ * @{
+ *
  * A fully documented class for inheriting from.
  */
 class BaseClass {
@@ -45,6 +87,8 @@ protected:
     /// The value of something important.
     unsigned int some_data = 0;
 };
+
+/** @} */
 
 NAMESPACE_END(arbitrary)
 

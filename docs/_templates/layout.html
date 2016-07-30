@@ -1,0 +1,21 @@
+{# A simple derivative of the sphinx_rtd_theme to highlight with highlight.js. #}
+{% extends "!layout.html" %}
+{% block extrahead %}
+    <!-- Load in the highlight.js code styles after bootstrap to override. -->
+    <link href="{{ pathto('_static/highlight/styles/default.css', 1) }}" rel="stylesheet">
+{% endblock %}
+{# Need to modify the output of sphinx to let highlight.js take over. #}
+{% block footer %}
+    <!-- highlight.js modifies your code on load to change the code tags -->
+    <script src="{{ pathto('_static/highlight/highlight.pack.js', 1) }}"></script>
+    <!-- Custom loading function required: sphinx will generate a highlight-<lang>
+         section (e.g. if you do .. code-block:: bash, it will be highlight-bash).
+         We want to capture all of these and have highlight.js color instead. -->
+    <script type="text/javascript">
+        $(document).ready(function() {
+          $('div[class^="highlight-"] div[class="highlight"] pre').each(function(i, block) {
+            hljs.highlightBlock(block);
+          });
+        });
+    </script>
+{% endblock %}
