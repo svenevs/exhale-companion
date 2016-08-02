@@ -87,6 +87,19 @@ namespace arbitrary {
             std::uint8_t c;     // occupies 1 byte
         };
     }
+
+    /// At a first glance, it doesn't seem arbitrary.
+    bool arbitraryFunction() {
+        return false;
+    }
+
+    /// Hem meh he mehemmeh.
+    struct arbitrary_struct {
+        /// Mehem
+        int meh = 11;
+        /// Mehehem
+        arbitrary_struct(int m) : meh(m) {}
+    };
 }
 
 /**

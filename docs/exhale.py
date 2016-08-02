@@ -513,6 +513,24 @@ class Node:
         self.color    = Node.WHITE
         self.children = []
 
+    def __lt__(self, other):
+        # allows alphabetical sorting within types
+        if self.kind == other.kind:
+            return self.name < other.name
+        elif self.kind == "struct" or self.kind == "class":
+            if other.kind != "struct" and other.kind != "class":
+                return True
+            else:
+                if self.kind == "struct" and other.kind == "class":
+                    return True
+                elif self.kind == "class" and other.kind == "struct":
+                    return False
+                else:
+                    return self.name < other.name
+        # otherwise, sort based off the kind
+        else:
+            return self.kind < other.kind
+
     def colorWhite(self):
         self.color = Node.WHITE
 
@@ -525,8 +543,12 @@ class Node:
     def toConsole(self, level):
         indent = "  " * level
         print("{}- [{}]: {}".format(indent, self.kind, self.name))
-        for c in self.children:
-            c.toConsole(level+1)
+        if self.kind != "class" and self.kind != "struct" and self.kind != "union":
+            for c in self.children:
+                c.toConsole(level+1)
+
+    def typeSort(self):
+        self.children.sort()
 
 
 
@@ -592,6 +614,7 @@ class TextRoot(object):
         self.groups          = [] #           |
         # doxygennamespace <-+-> "namespace"  |
         self.namespaces      = [] #           |
+        self.scoped_namespaces = []
         # doxygentypedef   <-+-> "typedef"    |
         self.typedefs        = [] #           |
         # doxygenunion     <-+-> "union"      |
@@ -738,6 +761,78 @@ class TextRoot(object):
             for idx in pop_indices:
                 self.unions.pop(idx)
 
+    def reparentClassLike(self):
+        '''
+        pass
+        '''
+        for cl in self.class_like:
+            parts = cl.name.split("::")
+            if len(parts) > 1:
+                namespace_name = "::".join(parts[:-1])
+                for n in self.namespaces:
+                    if n.name == namespace_name:
+                        n.children.append(cl)
+                        break
+
+    def reparentNamespaces(self):
+        '''
+        pass
+        '''
+        namespace_parts = []
+        namespace_ranks = []
+        for n in self.namespaces:
+            parts = n.name.split("::")
+            for p in parts:
+                if p not in namespace_parts:
+                    namespace_parts.append(p)
+            namespace_ranks.append((len(parts), n))
+
+        traversal = sorted(namespace_ranks)
+        num_names = len(namespace_ranks)
+        pop_indices = []
+        idx = 0
+        removals = []
+        for rank, namespace in reversed(traversal):
+            # rank one means top level namespace
+            if rank < 2:
+                break
+            # otherwise, this is nested
+            for p_rank, p_namespace in reversed(traversal):
+                if p_rank == rank-1:
+                    if p_namespace.name == "::".join(namespace.name.split("::")[:-1]):
+                        p_namespace.children.append(namespace)
+                        removals.append(namespace)
+                        if idx not in pop_indices:
+                            pop_indices.insert(0, idx)
+                        break
+            idx += 1
+
+        # if len(pop_indices) > 0:
+        #     for idx in pop_indices:
+        #         self.namespaces.pop(idx)
+        for rm in removals:
+            if rm in self.namespaces:
+                self.namespaces.remove(rm)
+
+
+
+        # pop_indices = []
+        # for sn in self.namespaces:
+        #     for idx in range(len(self.namespaces)):
+        #         scoped = self.namespaces[idx]
+        #         if scoped.name == sn.name:
+        #             continue
+        #         elif sn.name == "::".join(part for part in scoped.name.split("::")[:-1]):
+        #             scoped.children.append(sn)
+        #             if idx not in pop_indices:
+        #                 pop_indices.insert(0, idx)
+        #             break
+
+        # if len(pop_indices) > 0:
+        #     for idx in pop_indices:
+        #         self.namespaces.pop(idx)
+
+
     def reparentAll(self):
         '''
         reparents unions to class like objects or namespaces (and removes from self.unions)
@@ -745,6 +840,8 @@ class TextRoot(object):
         adds classes to namespaces, but keeps the class like objects in their list
         '''
         self.reparentUnions()
+        self.reparentClassLike()
+        self.reparentNamespaces()
 
     def __parse(self):
         for x in range(99):
@@ -753,6 +850,11 @@ class TextRoot(object):
         self.discoverAllNodes()
         self.reparentAll()
 
+        self.namespaces.sort()
+        for n in self.namespaces:
+            n.typeSort()
+
+        self.class_like.sort()
 
         print("###########################################################")
         print("## {}".format("Classes and Structs"))
@@ -814,6 +916,13 @@ class TextRoot(object):
         print("###########################################################")
         for n in self.variables:
             n.toConsole(0)
+        print("###########################################################")
+        print("###########################################################")
+        print("###########################################################")
+        print("## {}".format("Scoped Namespaces"))
+        print("###########################################################")
+        for sn in self.scoped_namespaces:
+            sn.toConsole(0)
 
 
         for x in range(99, 0, -1):
