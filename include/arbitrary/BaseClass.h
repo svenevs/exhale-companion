@@ -1,3 +1,7 @@
+/**
+ * \file
+ * \brief Defines the `BaseClass` that is to be derived from in all instances.
+ */
 #ifndef _ARBITRARY_BASE_CLASS_H
 #define _ARBITRARY_BASE_CLASS_H
 

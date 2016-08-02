@@ -12,7 +12,7 @@ Python bindings of all functionality are provided using
     Contents:
 
 .. toctree::
-   :maxdepth: 4
+   :maxdepth: 2
 
    about
    quick_start

@@ -1,3 +1,7 @@
+/**
+ * \file
+ * \brief An example of the derivation strategies you could conceivably use.
+ */
 #ifndef _ARBITRARY_DERIVED_CLASS_H
 #define _ARBITRARY_DERIVED_CLASS_H
 

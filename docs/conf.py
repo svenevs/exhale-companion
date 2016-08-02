@@ -351,9 +351,27 @@ def generate_library_api():
     Runs breathe and manipulates its parsing to generate a more coherent
     file / namespace / class hierarchy.
     '''
+    # declare the library specific filename, title, and description for the
+    # top of the library api page
+    import textwrap
+    library_api_file  = "library_api.rst"
+    library_api_title = "Library API"
+    library_api_brief = textwrap.dedent('''
+    .. warning::
+
+       Please be advised that the reference documentation discussing NanoGUI
+       is currently being developed.  Presented below is *only* the **C++**
+       API.  If you are using the **Python** API, the contents below are still
+       applicable for understanding what methods are available.  **Python** users
+       are advised to refer to the more concise ``example2`` program for
+       understanding how to wield the **C++** API using **Python** --- all of the
+       relevant **C++** API is bound to **Python** using ``pybind11``.
+    ''')
+
+    # import the exhale module from the current directory and generate the api
     sys.path.append(os.path.abspath('.'))
     from exhale import generate_all_files
-    generate_all_files("FOO", "BAR", "./doxyoutput/xml/index.xml")
+    generate_all_files(library_api_file, library_api_title, library_api_brief, "./doxyoutput/xml/index.xml")
 
 
 def setup(app):

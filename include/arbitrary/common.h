@@ -1,5 +1,6 @@
 /**
- * \defgroup Common The common group for everything.
+ * \file
+ * \brief Provides various different types, typedefs, and functions used throughout.
  */
 #ifndef _ARBITRARY_COMMON_H
 #define _ARBITRARY_COMMON_H
@@ -62,6 +63,31 @@ static float common_float_variable = 12.21f;
 
 /// An extra useful typedef to make your readers happy.
 typedef bool super_bool;
+
+/// The most supreme unions of them all.
+union SupremeUnion {
+    std::int32_t n;     // occupies 4 bytes
+    std::uint16_t s[2]; // occupies 4 bytes
+    std::uint8_t c;     // occupies 1 byte
+};
+
+namespace arbitrary {
+    /// This is a union in a namespace.
+    union NamespacedUnion {
+        std::int32_t n;     // occupies 4 bytes
+        std::uint16_t s[2]; // occupies 4 bytes
+        std::uint8_t c;     // occupies 1 byte
+    };
+
+    namespace nested {
+        /// This is a union in a a _nested_ namespace.
+        union NestedNamespacedUnion {
+            std::int32_t n;     // occupies 4 bytes
+            std::uint16_t s[2]; // occupies 4 bytes
+            std::uint8_t c;     // occupies 1 byte
+        };
+    }
+}
 
 /**
  * \brief A common function that would be used with ..doxygenfunction::.
