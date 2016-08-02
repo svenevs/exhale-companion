@@ -788,9 +788,6 @@ class TextRoot(object):
             namespace_ranks.append((len(parts), n))
 
         traversal = sorted(namespace_ranks)
-        num_names = len(namespace_ranks)
-        pop_indices = []
-        idx = 0
         removals = []
         for rank, namespace in reversed(traversal):
             # rank one means top level namespace
@@ -801,18 +798,12 @@ class TextRoot(object):
                 if p_rank == rank-1:
                     if p_namespace.name == "::".join(namespace.name.split("::")[:-1]):
                         p_namespace.children.append(namespace)
-                        removals.append(namespace)
-                        if idx not in pop_indices:
-                            pop_indices.insert(0, idx)
+                        if namespace not in removals:
+                            removals.append(namespace)
                         break
-            idx += 1
 
-        # if len(pop_indices) > 0:
-        #     for idx in pop_indices:
-        #         self.namespaces.pop(idx)
         for rm in removals:
-            if rm in self.namespaces:
-                self.namespaces.remove(rm)
+            self.namespaces.remove(rm)
 
 
 
