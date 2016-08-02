@@ -639,10 +639,10 @@ class TextRoot(object):
         else:
             print("&&&&&&&&&&&&&&&&&&&&&&: {}, {}".format(node.kind, node.name))
 
-    def discoverNeigbors(self, nodes_remaining, curr_node):
-        # discover neighbors of current curr_node; some seem to not have get_member()
-        if "member" in curr_node.compound.__dict__:
-            for member in curr_node.compound.get_member():
+    def discoverNeigbors(self, nodes_remaining, node):
+        # discover neighbors of current node; some seem to not have get_member()
+        if "member" in node.compound.__dict__:
+            for member in node.compound.get_member():
                 # keep track of every breathe compound we have seen
                 if member not in self.all_compounds:
                     self.all_compounds.append(member)
@@ -650,14 +650,12 @@ class TextRoot(object):
                     child_node = Node(member)
                     # if the current node is a class, struct, union, or enum it's
                     # ignore variables, functions, etc
-                    if curr_node.kind != "class" and curr_node.kind != "struct" and curr_node.kind != "union":
+                    if node.kind != "class" and node.kind != "struct" and node.kind != "union":
                         nodes_remaining.append(child_node)
                     # the enum is also presented, no need for separate enumvals
                     # ... determining the enumvalue parent would be painful and i don't want to do it
                     if child_node.kind != "enumvalue":
-                        curr_node.children.append(child_node)
-                    # bookkeeping for verify at end
-                    self.all_nodes.append(child_node)
+                        node.children.append(child_node)
 
     def discoverAllNodes(self):
         '''
@@ -670,9 +668,10 @@ class TextRoot(object):
         # children if they have not already been visited before.
         nodes_remaining = [Node(compound) for compound in self.breathe_root.get_compound()]
         while len(nodes_remaining) > 0:
-            node = nodes_remaining.pop()
-            self.trackNodeIfUnseen(node)
-            self.discoverNeigbors(nodes_remaining, node)
+            curr_node = nodes_remaining.pop()
+            print("NODE: {}{}{}".format(curr_node.name, "__>><<__", curr_node.kind))
+            self.trackNodeIfUnseen(curr_node)
+            self.discoverNeigbors(nodes_remaining, curr_node)
 
     def reparentUnions(self):
         '''
