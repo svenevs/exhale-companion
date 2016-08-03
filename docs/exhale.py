@@ -365,7 +365,7 @@ class Node:
                 print("{}- included by: [{}]".format("  "*(level+1), name))
             for n in self.namespaces_used:
                 n.toConsole(level+1, print_children=False)
-        if print_children and self.kind != "class" and self.kind != "struct" and self.kind != "union":
+        if print_children:
             for c in self.children:
                 c.toConsole(level+1)
 
@@ -525,11 +525,9 @@ class TextRoot(object):
         namespaces and classes should have the unions defined in them to be in the child
         list of itself rather than floating around.
 
-        removes reparented unions from self.unions
+        removes reparented unions
         '''
-        pop_indices = []
-        for idx in range(len(self.unions)):
-            u = self.unions[idx]
+        for u in self.unions:
             parts = u.name.split("::")
             num_parts = len(parts)
             if num_parts > 1:
@@ -544,7 +542,6 @@ class TextRoot(object):
                     for cl in self.class_like:
                         if cl.name == potential_class:
                             cl.children.append(u)
-                            pop_indices.insert(0, idx)
                             reparented = True
                             break
 
@@ -556,8 +553,6 @@ class TextRoot(object):
                     for n in self.namespaces:
                         if namespace_name == n.name or alt_namespace_name == n.name:
                             n.children.append(u)
-                            # # do not pop this for global presentation of unions
-                            # reparented = True
                             break
                 else:
                     name_or_class_name = "::".join(p for p in parts[:-1])
@@ -568,7 +563,6 @@ class TextRoot(object):
                     for cl in self.class_like:
                         if cl.name == name_or_class_name:
                             cl.children.append(u)
-                            pop_indices.insert(0, idx)
                             reparented = True
                             break
 
@@ -580,10 +574,6 @@ class TextRoot(object):
                         if n.name == name_or_class_name:
                             n.children.append(u)
                             break
-
-        if len(pop_indices) > 0:
-            for idx in pop_indices:
-                self.unions.pop(idx)
 
     def reparentClassLike(self):
         '''
@@ -597,6 +587,34 @@ class TextRoot(object):
                     if n.name == namespace_name:
                         n.children.append(cl)
                         break
+
+    def reparentDirectories(self):
+        dir_parts = []
+        dir_ranks = []
+        for d in self.dirs:
+            parts = d.name.split("/")
+            for p in parts:
+                if p not in dir_parts:
+                    dir_parts.append(p)
+            dir_ranks.append((len(parts), d))
+
+        traversal = sorted(dir_ranks)
+        removals = []
+        for rank, directory in reversed(traversal):
+            # rank one means top level directory
+            if rank < 2:
+                break
+            # otherwise, this is nested
+            for p_rank, p_directory in reversed(traversal):
+                if p_rank == rank-1:
+                    if p_directory.name == "/".join(directory.name.split("/")[:-1]):
+                        p_directory.children.append(directory)
+                        if directory not in removals:
+                            removals.append(directory)
+                        break
+
+        for rm in removals:
+            self.dirs.remove(rm)
 
     def reparentNamespaces(self):
         '''
@@ -652,6 +670,7 @@ class TextRoot(object):
         '''
         self.reparentUnions()
         self.reparentClassLike()
+        self.reparentDirectories()
         self.renameToNamespaceScopes()
         self.reparentNamespaces()
 
@@ -757,35 +776,35 @@ class TextRoot(object):
                 if any(unresolved_name in line for line in f.program_listing):
                     f.children.append(orphan)
 
-    def fileAndDirectoryPostProcess(self):
+    def filePostProcess(self):
         ''' Now that each file has its location parsed from the xml, reparent to dirs '''
-        # reparent directories
-        dir_parts = []
-        dir_ranks = []
-        for d in self.dirs:
-            parts = d.name.split("/")
-            for p in parts:
-                if p not in dir_parts:
-                    dir_parts.append(p)
-            dir_ranks.append((len(parts), d))
-
-        traversal = sorted(dir_ranks)
         removals = []
-        for rank, directory in reversed(traversal):
-            # rank one means top level directory
-            if rank < 2:
-                break
-            # otherwise, this is nested
-            for p_rank, p_directory in reversed(traversal):
-                if p_rank == rank-1:
-                    if p_directory.name == "/".join(directory.name.split("/")[:-1]):
-                        p_directory.children.append(directory)
-                        if directory not in removals:
-                            removals.append(directory)
+        for f in self.files:
+            dir_loc_parts = f.location.split("/")[:-1]
+            num_parts = len(dir_loc_parts)
+            # nothing to do, at the top level
+            if num_parts == 0:
+                continue
+
+            dir_path = "/".join(p for p in dir_loc_parts)
+            nodes_remaining = [d for d in self.dirs]
+            while len(nodes_remaining) > 0:
+                d = nodes_remaining.pop()
+                if d.name in dir_path:
+                    # we have found the directory we want
+                    if d.name == dir_path:
+                        d.children.append(f)
+                        removals.append(f)
                         break
+                    # otherwise, try and find an owner
+                    else:
+                        nodes_remaining = []
+                        for child in d.children:
+                            if child.kind == "dir":
+                                nodes_remaining.append(child)
 
         for rm in removals:
-            self.dirs.remove(rm)
+            self.files.remove(rm)
 
     def __parse(self):
         for x in range(99):
@@ -800,7 +819,7 @@ class TextRoot(object):
             self.node_by_refid[n.refid] = n
 
         self.fileRefDiscovery()
-        self.fileAndDirectoryPostProcess()
+        self.filePostProcess()
 
         self.namespaces.sort()
         for n in self.namespaces:

@@ -1,5 +1,6 @@
 #include <iostream>
 #include <arbitrary/DerivedClass.h>
+#include <OuterFile.h>
 
 struct two_floats {
     two_floats() : x(0.0f), y(0.0f) {}
@@ -12,6 +13,8 @@ struct two_floats {
 };
 
 int main(int argc, char **argv) {
+    SomeOuterClass soc(12u);
+
     std::cout << "Creating an arbitrary example using DerivedClass<float, 4>:" << std::endl;
     arbitrary::DerivedClass<float, 4> derived_obj;
     std::cout << "  Insertions:" << std::endl;

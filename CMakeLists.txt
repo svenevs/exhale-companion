@@ -9,5 +9,6 @@ add_executable(doc-test-exe
                include/arbitrary/common.h
                include/arbitrary/BaseClass.h
                include/arbitrary/DerivedClass.h
+               include/OuterFile.h
                src/main.cpp
 )
