@@ -663,11 +663,14 @@ class TextRoot(object):
         # parse the doxygen xml file and extract all refid's put in it
         # keys: file object, values: list of refid's
         doxygen_xml_file_ownerships = {}
-        ref_regex = re.compile(r'.*<inner.*refid="(\w+)".*')# innerclass, innernamespace, etc
-        inc_regex = re.compile(r'.*<includes.*>(.+)</includes>')
-        # <includedby refid="_base_class_8h" local="no">include/arbitrary/BaseClass.h</includedby>
+        # innerclass, innernamespace, etc
+        ref_regex    = re.compile(r'.*<inner.*refid="(\w+)".*')
+        # what files this file includes
+        inc_regex    = re.compile(r'.*<includes.*>(.+)</includes>')
+        # what files include this file
         inc_by_regex = re.compile(r'.*<includedby refid="(\w+)".*>(.*)</includedby>')
-        loc_regex = re.compile(r'.*<location file="(.*)"/>')
+        # the actual location of the file
+        loc_regex    = re.compile(r'.*<location file="(.*)"/>')
 
         for f in self.files:
             doxygen_xml_file_ownerships[f] = []
@@ -702,18 +705,6 @@ class TextRoot(object):
                             if "<programlisting>" in line:
                                 processing_code_listing = True
                         else:
-                            # # at this point we have gathered everything the file defines
-                            # # except for some potentially scoped enums or variables that
-                            # # may have been defined in a namespace. build a list of
-                            # # the potential orphans
-                            # if build_out_orphans:
-                            #     for n in f.namespaces_used:
-                            #         for child in n.children:
-                            #             if child.kind == "enum" or child.kind == "variable":
-                            #                 if "::" in child.name:
-                            #                     potential_orphans.append(child)
-                            #     build_out_orphans = False
-
                             # grab the location tag while we are here
                             if code_listing_finished:
                                 match = loc_regex.match(line)
@@ -724,19 +715,6 @@ class TextRoot(object):
                                     code_listing_finished = True
                                 else:
                                     f.program_listing.append(line)
-
-                            # for orphan in potential_orphans:
-                            #     if orphan.name in line:
-                            #         f.children.append(orphan)
-                            #         break
-
-                            # if "</programlisting>" in line:
-                            #     code_listing_finished = True
-
-
-
-
-
             except:
                 sys.stderr.write("Unable to process doxygen xml for file [{}].\n".format(f.name))
 
@@ -773,11 +751,41 @@ class TextRoot(object):
                         potential_orphans.append(child)
 
             # now that we have a list of potential orphans, see if this doxygen xml had the
-            # refid of a given child present. note: would fail if you are doing classes
+            # refid of a given child present.
             for orphan in potential_orphans:
                 unresolved_name = orphan.name.split("::")[-1]
                 if any(unresolved_name in line for line in f.program_listing):
                     f.children.append(orphan)
+
+    def fileAndDirectoryPostProcess(self):
+        ''' Now that each file has its location parsed from the xml, reparent to dirs '''
+        # reparent directories
+        dir_parts = []
+        dir_ranks = []
+        for d in self.dirs:
+            parts = d.name.split("/")
+            for p in parts:
+                if p not in dir_parts:
+                    dir_parts.append(p)
+            dir_ranks.append((len(parts), d))
+
+        traversal = sorted(dir_ranks)
+        removals = []
+        for rank, directory in reversed(traversal):
+            # rank one means top level directory
+            if rank < 2:
+                break
+            # otherwise, this is nested
+            for p_rank, p_directory in reversed(traversal):
+                if p_rank == rank-1:
+                    if p_directory.name == "/".join(directory.name.split("/")[:-1]):
+                        p_directory.children.append(directory)
+                        if directory not in removals:
+                            removals.append(directory)
+                        break
+
+        for rm in removals:
+            self.dirs.remove(rm)
 
     def __parse(self):
         for x in range(99):
@@ -792,6 +800,7 @@ class TextRoot(object):
             self.node_by_refid[n.refid] = n
 
         self.fileRefDiscovery()
+        self.fileAndDirectoryPostProcess()
 
         self.namespaces.sort()
         for n in self.namespaces:
