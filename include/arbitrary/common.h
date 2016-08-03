@@ -17,6 +17,12 @@
     #define NAMESPACE_END(name) }
 #endif
 
+/// An enum that is not in a namespace.
+enum UnscopedEnum {
+    NO,
+    YES
+};
+
 /// A namespace outside of arbitrary.
 namespace external {
     /// Maximum number of traversals.

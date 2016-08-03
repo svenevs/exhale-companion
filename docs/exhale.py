@@ -1,149 +1,5 @@
 __all__ = ['generate_all_files', 'TextRoot', 'TextNode']
 
-
-
-
-
-
-
-
-#
-# woaaaah way too much duplication
-#
-#
-# this is what you should do: stack based DFS with a queue,
-#    start at root.get_compound()
-#    add them all in there to ze queue as you go
-#    track namespaces and files and classes independently
-#
-#    then you will probably need to bring the doxygen xml parsing
-#        back into play to get the remaining things you were missing???
-#        *** find a way to grab the include path from the doxygen xml
-#            because breathe meses it up. you should be able to do it
-#            while gathering the refid's you are missing
-#
-#
-#
-# ** File: BaseClass.h
-#   - [class]:     arbitrary::BaseClass
-#   - [class]:     arbitrary::BaseClass
-#   - [variable]:  some_data
-#   - [function]:  ~BaseClass
-#   - [function]:  getData
-#   - [function]:  BaseClass
-#   - [struct]:    arbitrary::nested::int2
-#   - [struct]:    arbitrary::nested::int2
-#   - [variable]:  x
-#   - [variable]:  y
-#   - [function]:  int2
-#   - [function]:  int2
-#   - [struct]:    arbitrary::nested::dual_nested::int3
-#   - [struct]:    arbitrary::nested::dual_nested::int3
-#   - [variable]:  x
-#   - [variable]:  y
-#   - [variable]:  z
-#   - [function]:  int3
-#   - [function]:  int3
-#   - [namespace]: arbitrary
-#     - member: enum, CAMERA_STATES
-#     - member: enumvalue, CAM_NONE
-#     - member: enumvalue, CAM_ROTATE
-#     - member: enumvalue, CAM_TRANSLATE
-#     - member: enumvalue, CAM_SCALE
-#   - [namespace]: arbitrary::nested
-#   - [namespace]: arbitrary::nested::dual_nested
-#   - [file]:      common.h
-#   - [file]:      DerivedClass.h
-#   - [define]:    AN_ARBITRARY_DEFINE
-# ** File: common.h
-#   - [struct]:    super_params
-#   - [variable]:  x
-#   - [variable]:  y
-#   - [variable]:  z
-#   - [function]:  super_params
-#   - [function]:  super_params
-#   - [union]:     super_params::U
-#   - [variable]:  first_view
-#   - [variable]:  second_view
-#   - [namespace]: external
-#     - member: variable, MAX_DEPTH
-#   - [file]:      BaseClass.h
-#   - [typedef]:   super_bool
-#   - [file]:      DerivedClass.h
-#   - [typedef]:   super_bool
-#   - [variable]:  common_float_variable
-#   - [function]:  someCommonFunction
-# ** File: DerivedClass.h
-#   - [class]:     arbitrary::BaseClass
-#   - [class]:     arbitrary::BaseClass
-#   - [class]:     arbitrary::DerivedClass
-#   - [class]:     arbitrary::DerivedClass
-#   - [function]:  ~DerivedClass
-#   - [function]:  virtualMethod
-#   - [function]:  insertAt
-#   - [function]:  itemAt
-#   - [namespace]: arbitrary
-#     - member: enum, CAMERA_STATES
-#     - member: enumvalue, CAM_NONE
-#     - member: enumvalue, CAM_ROTATE
-#     - member: enumvalue, CAM_TRANSLATE
-#     - member: enumvalue, CAM_SCALE
-#   - [file]:      BaseClass.h
-#   - [file]:      common.h
-# ****************************************************************
-# ** Namespace: __global__namespace__
-#   - [struct]:    super_params
-# ** Namespace: arbitrary
-#   - [class]:     arbitrary::BaseClass
-#   - [class]:     arbitrary::DerivedClass
-#   - [enum]:      CAMERA_STATES
-# ** Namespace: arbitrary::nested
-#   - [struct]:    arbitrary::nested::int2
-# ** Namespace: arbitrary::nested::dual_nested
-#   - [struct]:    arbitrary::nested::dual_nested::int3
-# ** Namespace: external
-#   - [variable]:  MAX_DEPTH
-# (nspace) : arbitrary
-#     (nspace) : arbitrary::nested
-#         (nspace) : arbitrary::nested::dual_nested
-#             (struct) : arbitrary::nested::dual_nested::int3
-#         (struct) : arbitrary::nested::int2
-#     (class) : arbitrary::BaseClass
-#     (class) : arbitrary::DerivedClass
-# (nspace) : external
-# (nspace) : Unscoped Global Namespace
-#     (struct) : super_params
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 #
 # Note: known crash on struct params
 #
@@ -156,6 +12,7 @@ EXHALE_API_TOCTREE_MAX_DEPTH = 5
    override this value by supplying a different value to `generate_all_files`.'''
 
 EXHALE_API_DOXY_OUTPUT_DIR = ""
+
 
 def generate_all_files(root_generated_file, root_generated_title,
                        root_after_title_description, doxygen_xml_index_path,
@@ -438,41 +295,6 @@ class TextNode(object):
             except:
                 raise RuntimeError("Critical error while generating the file for [{}]".format(self.name))
 
-
-        # self_enum = "{}- ``{}`` :ref:`{}`".format(indent, qualifier, self.link_name)
-        # member_enum = ""
-        # try:
-        #     with open(self.file_name, "w") as gen_file:
-        #         # generate a link label for every generated file
-        #         link_declaration = ".. _{}:\n\n".format(self.link_name)
-        #         # every generated file must have a header for sphinx to be happy
-        #         header = "{}\n========================================================================================\n\n".format(self.name.split("::")[-1])
-        #         # inject the appropriate doxygen directive and name of this node
-        #         directive = ".. {}:: {}\n".format(TextNode.kindAsBreatheDirective(self.kind), self.name)
-        #         # include any specific directives for this doxygen directive
-        #         specifications = "{}\n\n".format(TextNode.directivesForKind(self.kind))
-        #         gen_file.write("{}{}{}{}".format(link_declaration, header, directive, specifications))
-        # except:
-        #     raise RuntimeError("Critical error while generating the file for [{}]".format(self.name))
-
-        # if self.compound is not None and "member" in self.compound.__dict__:
-        #     member_indent = "    {}".format(indent)
-        #     for member in self.compound.get_member():
-        #         member_kind = member.get_kind()
-        #         member_name = member.get_name()
-
-        #         member_qualifier = TextNode.qualifyKind(member_kind)
-        #         if member_qualifier != "":
-        #             member_qualifier = "{} : ".format(member_qualifier)
-        #             member_enum += "\n{}- {}{} :ref:`{}`".format(member_indent, member_qualifier, member_name, member.get_refid())
-
-        # # append this to the list of enumerations
-        # enumeration_string = "{}{}".format(self_enum, member_enum)
-        # enum_link_file_list.append((enumeration_string, self.link_name, self.file_name, self.refid))
-
-        # # add this generated pair to the map parameter
-        # generated_label_to_file_map[self.link_name] = enumeration_string
-
         for c in self.children:
             c.enumerate(indent_level+1, enum_link_file_list, generated_label_to_file_map)
 
@@ -499,19 +321,20 @@ class TextNode(object):
 
         return False
 
-class Node:
-    # if you change these deliberately you are at fault
-    WHITE = 0
-    GREY  = 1
-    BLACK = 2
 
+class Node:
     def __init__(self, breathe_compound):
         self.compound = breathe_compound
         self.kind     = breathe_compound.get_kind()
         self.name     = breathe_compound.get_name()
         self.refid    = breathe_compound.get_refid()
-        self.color    = Node.WHITE
         self.children = []
+        if self.kind == "file":
+            self.namespaces_used = []
+            self.includes        = []
+            self.included_by     = [] # (refid, name) tuples for now
+            self.location        = ""
+            self.program_listing = []
 
     def __lt__(self, other):
         # allows alphabetical sorting within types
@@ -531,25 +354,23 @@ class Node:
         else:
             return self.kind < other.kind
 
-    def colorWhite(self):
-        self.color = Node.WHITE
-
-    def colorGrey(self):
-        self.color = Node.GREY
-
-    def colorBlack(self):
-        self.color = Node.BLACK
-
-    def toConsole(self, level):
+    def toConsole(self, level, print_children=True):
         indent = "  " * level
         print("{}- [{}]: {}".format(indent, self.kind, self.name))
-        if self.kind != "class" and self.kind != "struct" and self.kind != "union":
+        if self.kind == "file":
+            print("{}[[[ location=\"{}\" ]]]".format("  "*(level+1), self.location))
+            for i in self.includes:
+                print("{}- #include <{}>".format("  "*(level+1), i))
+            for ref, name in self.included_by:
+                print("{}- included by: [{}]".format("  "*(level+1), name))
+            for n in self.namespaces_used:
+                n.toConsole(level+1, print_children=False)
+        if print_children and self.kind != "class" and self.kind != "struct" and self.kind != "union":
             for c in self.children:
                 c.toConsole(level+1)
 
     def typeSort(self):
         self.children.sort()
-
 
 
 class TextRoot(object):
@@ -622,6 +443,9 @@ class TextRoot(object):
         # doxygenvariable  <-+-> "variable"   |
         self.variables       = [] #           |
         #-------------------------------------+
+
+        # convenience lookup
+        self.node_by_refid = {}
 
         self.__parse()
         # self.__post_process()
@@ -805,24 +629,20 @@ class TextRoot(object):
         for rm in removals:
             self.namespaces.remove(rm)
 
+    def renameToNamespaceScopes(self):
+        '''
+        Function names do not appear with the appropriate namespace prepended, so before
+        we reparent the namespaces we will prepend the appropriate namespace to the
+        function definition.  These will not be removed from the self.functions list.
 
-
-        # pop_indices = []
-        # for sn in self.namespaces:
-        #     for idx in range(len(self.namespaces)):
-        #         scoped = self.namespaces[idx]
-        #         if scoped.name == sn.name:
-        #             continue
-        #         elif sn.name == "::".join(part for part in scoped.name.split("::")[:-1]):
-        #             scoped.children.append(sn)
-        #             if idx not in pop_indices:
-        #                 pop_indices.insert(0, idx)
-        #             break
-
-        # if len(pop_indices) > 0:
-        #     for idx in pop_indices:
-        #         self.namespaces.pop(idx)
-
+        Same goes for variables.
+        '''
+        for n in self.namespaces:
+            namespace_name = "{}::".format(n.name)
+            for child in n.children:
+                # if child.kind == "function":
+                if namespace_name not in child.name:
+                    child.name = "{}{}".format(namespace_name, child.name)
 
     def reparentAll(self):
         '''
@@ -832,7 +652,132 @@ class TextRoot(object):
         '''
         self.reparentUnions()
         self.reparentClassLike()
+        self.renameToNamespaceScopes()
         self.reparentNamespaces()
+
+    def fileRefDiscovery(self):
+        ''' Finds the missing components for files. '''
+        if EXHALE_API_DOXY_OUTPUT_DIR == "":
+            sys.stderr.write("(!) The doxygen xml output directory was not specified!\n")
+            return
+        # parse the doxygen xml file and extract all refid's put in it
+        # keys: file object, values: list of refid's
+        doxygen_xml_file_ownerships = {}
+        ref_regex = re.compile(r'.*<inner.*refid="(\w+)".*')# innerclass, innernamespace, etc
+        inc_regex = re.compile(r'.*<includes.*>(.+)</includes>')
+        # <includedby refid="_base_class_8h" local="no">include/arbitrary/BaseClass.h</includedby>
+        inc_by_regex = re.compile(r'.*<includedby refid="(\w+)".*>(.*)</includedby>')
+        loc_regex = re.compile(r'.*<location file="(.*)"/>')
+
+        for f in self.files:
+            doxygen_xml_file_ownerships[f] = []
+            try:
+                doxy_xml_path = "{}{}.xml".format(EXHALE_API_DOXY_OUTPUT_DIR, f.refid)
+                with open(doxy_xml_path, "r") as doxy_file:
+                    processing_code_listing = False # shows up at bottom of xml
+                    build_out_orphans       = False # one time only orphan sprawl
+                    code_listing_finished   = False # use 'location' tag at bottom
+                    for line in doxy_file:
+                        if not processing_code_listing:
+                            # gather included by references
+                            match = inc_by_regex.match(line)
+                            if match is not None:
+                                ref, name = match.groups()
+                                f.included_by.append((ref, name))
+                                continue
+                            # gather includes lines
+                            match = inc_regex.match(line)
+                            if match is not None:
+                                inc = match.groups()[0]
+                                f.includes.append(inc)
+                                continue
+                            # gather any classes, namespaces, etc declared in the file
+                            match = ref_regex.match(line)
+                            if match is not None:
+                                match_refid = match.groups()[0]
+                                if match_refid in self.node_by_refid:
+                                    doxygen_xml_file_ownerships[f].append(match_refid)
+                                continue
+                            # lastly, see if we are starting the code listing
+                            if "<programlisting>" in line:
+                                processing_code_listing = True
+                        else:
+                            # # at this point we have gathered everything the file defines
+                            # # except for some potentially scoped enums or variables that
+                            # # may have been defined in a namespace. build a list of
+                            # # the potential orphans
+                            # if build_out_orphans:
+                            #     for n in f.namespaces_used:
+                            #         for child in n.children:
+                            #             if child.kind == "enum" or child.kind == "variable":
+                            #                 if "::" in child.name:
+                            #                     potential_orphans.append(child)
+                            #     build_out_orphans = False
+
+                            # grab the location tag while we are here
+                            if code_listing_finished:
+                                match = loc_regex.match(line)
+                                if match is not None:
+                                    f.location = match.groups()[0]
+                            else:
+                                if "</programlisting>" in line:
+                                    code_listing_finished = True
+                                else:
+                                    f.program_listing.append(line)
+
+                            # for orphan in potential_orphans:
+                            #     if orphan.name in line:
+                            #         f.children.append(orphan)
+                            #         break
+
+                            # if "</programlisting>" in line:
+                            #     code_listing_finished = True
+
+
+
+
+
+            except:
+                sys.stderr.write("Unable to process doxygen xml for file [{}].\n".format(f.name))
+
+        # now that we have parsed all the listed refid's in the doxygen xml, reparent
+        # the nodes that we care about
+        for f in self.files:
+            for match_refid in doxygen_xml_file_ownerships[f]:
+                child = self.node_by_refid[match_refid]
+                if child.kind == "struct" or child.kind == "class" or child.kind == "function" or \
+                   child.kind == "typedef" or child.kind == "define" or child.kind == "enum":
+                    already_there = False
+                    for fc in f.children:
+                        if child.name == fc.name:
+                            already_there = True
+                            break
+                    if not already_there:
+                            f.children.append(child)
+                elif child.kind == "namespace":
+                    already_there = False
+                    for fc in f.namespaces_used:
+                        if child.name == fc.name:
+                            already_there = True
+                            break
+                    if not already_there:
+                        f.namespaces_used.append(child)
+
+        # last but not least, enums and variables declared in the file that are scoped
+        # in a namespace they will show up in the programlisting, but not at the toplevel.
+        for f in self.files:
+            potential_orphans = []
+            for n in f.namespaces_used:
+                for child in n.children:
+                    if child.kind == "enum" or child.kind == "variable":
+                        potential_orphans.append(child)
+
+            # now that we have a list of potential orphans, see if this doxygen xml had the
+            # refid of a given child present. note: would fail if you are doing classes
+            for orphan in potential_orphans:
+                unresolved_name = orphan.name.split("::")[-1]
+                if any(unresolved_name in line for line in f.program_listing):
+                    f.children.append(orphan)
 
     def __parse(self):
         for x in range(99):
@@ -841,11 +786,55 @@ class TextRoot(object):
         self.discoverAllNodes()
         self.reparentAll()
 
+        # now that we have all of the nodes, store them in a convenient manner for refid
+        # lookup when parsing the doxygen xml files
+        for n in self.all_nodes:
+            self.node_by_refid[n.refid] = n
+
+        self.fileRefDiscovery()
+
         self.namespaces.sort()
         for n in self.namespaces:
             n.typeSort()
 
         self.class_like.sort()
+        self.files.sort()
+        for f in self.files:
+            f.typeSort()
+
+
+
+
+
+
+
+
+        #             #             #             #             #             #             #
+        ##           ###           ###           ###           ###           ###           ##
+        ###         #####         #####         #####         #####         #####         ###
+        ####       #######       #######       #######       #######       #######       ####
+        #####     #########     #########     #########     #########     #########     #####
+        ######   ###########   ###########   ###########   ###########   ###########   ######
+        ####### ############# ############# ############# ############# ############# #######
+        ######   ###########   ###########   ###########   ###########   ###########   ######
+        #####     #########     #########     #########     #########     #########     #####
+        ####       #######       #######       #######       #######       #######       ####
+        ###         #####         #####         #####         #####         #####         ###
+        ##           ###           ###           ###           ###           ###           ##
+        #             #             #             #             #             #             #
+        #
+        #
+        # add in the doxygen xml parsing stuff here to get all the missing refids for files
+        #
+        #
+
+
+
+
+
+
+
+
 
         print("###########################################################")
         print("## {}".format("Classes and Structs"))

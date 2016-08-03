@@ -28,3 +28,14 @@ Library API
 
    generated_api_unscoped_global_namespace.rst
 
+This is a test of the functions
+--------------------------------------------------------
+
+.. doxygenfunction:: arbitraryFunction
+
+I wonder how that looks.  Now lets see if it works with the proper namespace:
+
+.. doxygenfunction:: arbitrary::arbitraryFunction
+
+Please be good.
+
