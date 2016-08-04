@@ -17,7 +17,7 @@ Python bindings of all functionality are provided using
    about
    quick_start
    compilation
-   library_api
+   generated_api/library_root
    reference
 
 So that you are aware

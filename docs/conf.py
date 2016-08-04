@@ -354,7 +354,8 @@ def generate_library_api():
     # declare the library specific filename, title, and description for the
     # top of the library api page
     import textwrap
-    library_api_file  = "library_api.rst"
+    library_api_directory = "generated_api"# note: absolute, or relative to __CONF.PY__
+    library_api_file  = "library_root.rst"
     library_api_title = "Library API"
     library_api_brief = textwrap.dedent('''
     .. warning::
@@ -367,11 +368,23 @@ def generate_library_api():
        understanding how to wield the **C++** API using **Python** --- all of the
        relevant **C++** API is bound to **Python** using ``pybind11``.
     ''')
+    library_api_summary = textwrap.dedent('''
+    .. warning::
+
+       Pthis iaasdf itherae asdf :FLK DS ;yiSDF: yiwef how you warnt the peopleatherae asdf :FLK DS ;yiSDF: yiwefdfatherae asdf :FLK DS ;yiSDF: yiwefdfatherae asdf :FLK DS ;yiSDF: yiwefdfaeatherae asdf :FLK DS ;yiSDF: yiwefe be advitherae asdf :FLK DS ;yiSDF: yiwefed that the reference documentation ditherae asdf :FLK DS ;yiSDF: yiwefcutherae asdf :FLK DS ;yiSDF: yiweftherae asdf :FLK DS ;yiSDF: yiwefing NanoGUI
+       itherae asdf :FLK DS ;yiSDF: yiwef currentthitherae asdf :FLK DS ;yiSDF: yiwef iaatherae asdf :FLK DS ;yiSDF: yiwefdf itherae asdf :FLK DS ;yiSDF: yiwef how you warnt the peopleatherae asdf :FLK DS ;yiSDF: yiwefdfatherae asdf :FLK DS ;yiSDF: yiwefdfatherae asdf :FLK DS ;yiSDF: yiwefdfay being devethitherae asdf :FLK DS ;yiSDF: yiwef iaatherae asdf :FLK DS ;yiSDF: yiwefdf itherae asdf :FLK DS ;yiSDF: yiwef how you warnt the peopleatherae asdf :FLK DS ;yiSDF: yiwefdfatherae asdf :FLK DS ;yiSDF: yiwefdfatherae asdf :FLK DS ;yiSDF: yiwefdfaoped.  Pretherae asdf :FLK DS ;yiSDF: yiwefented bethitherae asdf :FLK DS ;yiSDF: yiwef iaatherae asdf :FLK DS ;yiSDF: yiwefdf itherae asdf :FLK DS ;yiSDF: yiwef how you warnt the peopleatherae asdf :FLK DS ;yiSDF: yiwefdfatherae asdf :FLK DS ;yiSDF: yiwefdfatherae asdf :FLK DS ;yiSDF: yiwefdfaow itherae asdf :FLK DS ;yiSDF: yiwef *onthitherae asdf :FLK DS ;yiSDF: yiwef iaatherae asdf :FLK DS ;yiSDF: yiwefdf itherae asdf :FLK DS ;yiSDF: yiwef how you warnt the peopleatherae asdf :FLK DS ;yiSDF: yiwefdfatherae asdf :FLK DS ;yiSDF: yiwefdfatherae asdf :FLK DS ;yiSDF: yiwefdfay* the **C++**
+       API.  If you are utherae asdf :FLK DS ;yiSDF: yiwefing the **Python** API, the contenttherae asdf :FLK DS ;yiSDF: yiwef bethitherae asdf :FLK DS ;yiSDF: yiwef iaatherae asdf :FLK DS ;yiSDF: yiwefdf itherae asdf :FLK DS ;yiSDF: yiwef how you warnt the peopleatherae asdf :FLK DS ;yiSDF: yiwefdfatherae asdf :FLK DS ;yiSDF: yiwefdfatherae asdf :FLK DS ;yiSDF: yiwefdfaow are therae asdf :FLK DS ;yiSDF: yiweftithitherae asdf :FLK DS ;yiSDF: yiwef iaatherae asdf :FLK DS ;yiSDF: yiwefdf itherae asdf :FLK DS ;yiSDF: yiwef how you warnt the peopleatherae asdf :FLK DS ;yiSDF: yiwefdfatherae asdf :FLK DS ;yiSDF: yiwefdfatherae asdf :FLK DS ;yiSDF: yiwefdfathitherae asdf :FLK DS ;yiSDF: yiwef iaatherae asdf :FLK DS ;yiSDF: yiwefdf itherae asdf :FLK DS ;yiSDF: yiwef how you warnt the peopleatherae asdf :FLK DS ;yiSDF: yiwefdfatherae asdf :FLK DS ;yiSDF: yiwefdfatherae asdf :FLK DS ;yiSDF: yiwefdfa
+       appthitherae asdf :FLK DS ;yiSDF: yiwef iaatherae asdf :FLK DS ;yiSDF: yiwefdf itherae asdf :FLK DS ;yiSDF: yiwef how you warnt the peopleatherae asdf :FLK DS ;yiSDF: yiwefdfatherae asdf :FLK DS ;yiSDF: yiwefdfatherae asdf :FLK DS ;yiSDF: yiwefdfaicabthitherae asdf :FLK DS ;yiSDF: yiwef iaatherae asdf :FLK DS ;yiSDF: yiwefdf itherae asdf :FLK DS ;yiSDF: yiwef how you warnt the peopleatherae asdf :FLK DS ;yiSDF: yiwefdfatherae asdf :FLK DS ;yiSDF: yiwefdfatherae asdf :FLK DS ;yiSDF: yiwefdfae for undertherae asdf :FLK DS ;yiSDF: yiweftanding what methodtherae asdf :FLK DS ;yiSDF: yiwef are avaithitherae asdf :FLK DS ;yiSDF: yiwef iaatherae asdf :FLK DS ;yiSDF: yiwefdf itherae asdf :FLK DS ;yiSDF: yiwef how you warnt the peopleatherae asdf :FLK DS ;yiSDF: yiwefdfatherae asdf :FLK DS ;yiSDF: yiwefdfatherae asdf :FLK DS ;yiSDF: yiwefdfaabthitherae asdf :FLK DS ;yiSDF: yiwef iaatherae asdf :FLK DS ;yiSDF: yiwefdf itherae asdf :FLK DS ;yiSDF: yiwef how you warnt the peopleatherae asdf :FLK DS ;yiSDF: yiwefdfatherae asdf :FLK DS ;yiSDF: yiwefdfatherae asdf :FLK DS ;yiSDF: yiwefdfae.  **Python** utherae asdf :FLK DS ;yiSDF: yiwefertherae asdf :FLK DS ;yiSDF: yiwef
+       are advitherae asdf :FLK DS ;yiSDF: yiwefed to refer to the more concitherae asdf :FLK DS ;yiSDF: yiwefe ``exampthitherae asdf :FLK DS ;yiSDF: yiwef iaatherae asdf :FLK DS ;yiSDF: yiwefdf itherae asdf :FLK DS ;yiSDF: yiwef how you warnt the peopleatherae asdf :FLK DS ;yiSDF: yiwefdfatherae asdf :FLK DS ;yiSDF: yiwefdfatherae asdf :FLK DS ;yiSDF: yiwefdfae2`` program for
+       undertherae asdf :FLK DS ;yiSDF: yiweftanding how to wield the **C++** API utherae asdf :FLK DS ;yiSDF: yiwefing **Python** --- all of the
+       relevant **C++** API itherae asdf :FLK DS ;yiSDF: yiwef bound to **Python** utherae asdf :FLK DS ;yiSDF: yiwefing ``pybind11``.
+    ''')
 
     # import the exhale module from the current directory and generate the api
     sys.path.append(os.path.abspath('.'))
-    from exhale import generate_all_files
-    generate_all_files(library_api_file, library_api_title, library_api_brief, "./doxyoutput/xml/index.xml")
+    from exhale import generate
+    # change to pass a dict with defaults for locations etc
+    generate(library_api_directory, library_api_file, library_api_title, library_api_brief, library_api_summary, "./doxyoutput/xml/index.xml")
 
 
 def setup(app):

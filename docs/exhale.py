@@ -1,4 +1,4 @@
-__all__ = ['generate_all_files', 'TextRoot', 'TextNode']
+__all__ = ['generate', 'TextRoot', 'TextNode']
 
 #
 # Note: known crash on struct params
@@ -6,16 +6,18 @@ __all__ = ['generate_all_files', 'TextRoot', 'TextNode']
 from breathe.parser.index import parse as breathe_parse
 import sys
 import re
+import os
 
 EXHALE_API_TOCTREE_MAX_DEPTH = 5
 '''Larger than 5 will likely produce errors with a LaTeX build, but the user can
-   override this value by supplying a different value to `generate_all_files`.'''
+   override this value by supplying a different value to `generate`.'''
 
 EXHALE_API_DOXY_OUTPUT_DIR = ""
 
+EXHALE_FILE_HEADING = "=" * 88
 
-def generate_all_files(root_generated_file, root_generated_title,
-                       root_after_title_description, doxygen_xml_index_path,
+def generate(root_generated_directory, root_generated_file, root_generated_title,
+                       root_after_title_description, root_after_body_summary, doxygen_xml_index_path,
                        toctree_max_depth=5):
     '''
     document me please
@@ -37,10 +39,40 @@ def generate_all_files(root_generated_file, root_generated_title,
         sys.stderr.write("Could not use 'breathe' to parse the root 'doxygen' index.xml.\n")
 
     if breathe_root is not None:
-        text_root = TextRoot(breathe_root, root_generated_file, root_generated_title, root_after_title_description)
+        text_root = TextRoot(breathe_root, root_generated_directory, root_generated_file, root_generated_title, root_after_title_description, root_after_body_summary)
         # for n in text_root.namespaces:
         #     n.toConsole(0)
 
+
+def exclaimError(msg, ascii_fmt="34;1m"):
+    '''
+    Prints `msg` to the console in color with ``(!) `` prepended in color.
+
+    Example (uncolorized) output of ``exclaimError("No leading space needed.")``:
+
+        (!) No leading space needed.
+
+    All messages are written to `sys.stderr`, and are closed with ``[0m``.  The default
+    color is blue, but can be changed using `ascii_fmt`.
+
+    Documentation building has a verbose output process, this just helps distinguish an
+    error coming from exhale.
+
+    :type:  str
+    :param: msg
+    The message you want printed to standard error.
+
+    :type:  str
+    :param: ascii_fmt
+    An ascii color format.  `msg` is printed as ``"\033[" + ascii_fmt + msg + "\033[0m\n``, so you
+    should specify both the color code and the format code (after the semicolon).  The
+    default value is ``34;1m`` --- refer to
+
+        ``http://misc.flogisoft.com/bash/tip_colors_and_formatting``
+
+    for alternatives.
+    '''
+    sys.stderr.write("\033[{}(!) {}\033[0m\n".format(ascii_fmt, msg))
 
 # discovered types
 #
@@ -336,6 +368,8 @@ class Node:
             self.location        = ""
             self.program_listing = []
 
+        self.file_name = ""
+
     def __lt__(self, other):
         # allows alphabetical sorting within types
         if self.kind == other.kind:
@@ -375,19 +409,28 @@ class Node:
 
 class TextRoot(object):
     """docstring for TextRoot"""
-    def __init__(self, breathe_root, root_file_name, root_file_title, root_file_description):
+    def __init__(self, breathe_root, root_directory, root_file_name, root_file_title, root_file_description, root_file_summary):
         super(TextRoot, self).__init__()
         self.name = "ROOT" # used in the TextNode class
+
+
         self.breathe_root = breathe_root
+
+
         self.class_like = [] # list of TextNodes
         self.namespaces = []
         self.all_compounds = []
         self.top_level = []
-        self.dirs = []
+
         self.files = []
+
+        # file generation location and root index data
+        self.root_directory = root_directory
         self.root_file_name = root_file_name
+        self.full_root_file_path = "{}/{}".format(self.root_directory, self.root_file_name)
         self.root_file_title = root_file_title
         self.root_file_description = root_file_description
+        self.root_file_summary = root_file_summary
 
 
         ### merge to be just one dictionary, find way that works for key traversal
@@ -406,9 +449,8 @@ class TextRoot(object):
         self.files = []
         self.class_like = []
         self.enums = []
-        self.dirs = []
 
-
+        # breathe directive    breathe kind
         #--------------------+----------------+
         # autodoxygenfile  <-+-> IGNORE       |
         # doxygenindex     <-+-> IGNORE       |
@@ -427,6 +469,8 @@ class TextRoot(object):
         self.enum_values     = [] #           |
         # doxygenfunction  <-+-> "function"   |
         self.functions       = [] #           |
+        # no directive     <-+-> "dir"        |
+        self.dirs = []           #            |
         # doxygenfile      <-+-> "file"       |
         self.files           = [] #           |
         # not used, but could be supported in |
@@ -435,7 +479,6 @@ class TextRoot(object):
         self.groups          = [] #           |
         # doxygennamespace <-+-> "namespace"  |
         self.namespaces      = [] #           |
-        self.scoped_namespaces = []
         # doxygentypedef   <-+-> "typedef"    |
         self.typedefs        = [] #           |
         # doxygenunion     <-+-> "union"      |
@@ -806,6 +849,141 @@ class TextRoot(object):
         for rm in removals:
             self.files.remove(rm)
 
+    def __deep_sort_list(self, lst):
+        lst.sort()
+        for l in lst:
+            l.typeSort()
+
+    def sortInternals(self):
+        '''
+        Sort mostly how doxygen would, mostly alphabetical but also hierarchical (e.g.
+        structs appear before classes in listings).
+        '''
+        # some of the lists only need to be sorted, some of them need to be sorted and
+        # have each node sort its children
+        # leaf-like lists: no child sort
+        self.defines.sort()
+        self.enum_values.sort()
+        self.functions.sort()
+        self.files.sort()
+        self.enums.sort()
+        self.groups.sort()
+        self.typedefs.sort()
+        self.variables.sort()
+
+        # hierarchical lists: sort children
+        self.__deep_sort_list(self.class_like)
+        self.__deep_sort_list(self.namespaces)
+        self.__deep_sort_list(self.unions)
+
+    def consoleFormat(self, section_title, lst):
+        print("###########################################################")
+        print("## {}".format(section_title))
+        print("###########################################################")
+        for l in lst:
+            l.toConsole(0)
+
+    def toConsole(self):
+        self.consoleFormat("Classes and Structs", self.class_like)
+        self.consoleFormat("Defines", self.defines)
+        self.consoleFormat("Enums", self.enums)
+        self.consoleFormat("Enum Values", self.enum_values)
+        self.consoleFormat("Functions", self.functions)
+        self.consoleFormat("Files", self.files)
+        self.consoleFormat("Directories", self.dirs)
+        self.consoleFormat("Groups", self.groups)
+        self.consoleFormat("Namespaces", self.namespaces)
+        self.consoleFormat("Typedefs", self.typedefs)
+        self.consoleFormat("Unions", self.unions)
+        self.consoleFormat("Variables", self.variables)
+
+    def generateSingleNodeRST(self, node):
+        qualifier = TextNode.qualifyKind(node.kind)
+        if qualifier != "":
+            qualifier = "{} : ".format(qualifier)
+        else:
+            print("**********************{}*******************".format(node.name))
+
+        node.file_name = "{}/exhale_{}_{}.rst".format(self.root_directory, node.kind, node.name.replace(":", "_"))
+        try:
+            with open(node.file_name, "w") as gen_file:
+                # generate a link label for every generated file
+                link_declaration = ".. _{}:\n\n".format(node.refid)
+                # every generated file must have a header for sphinx to be happy
+                header = "{}\n{}\n\n".format(node.name.split("::")[-1], EXHALE_FILE_HEADING)
+                # inject the appropriate doxygen directive and name of this node
+                directive = ".. {}:: {}\n".format(TextNode.kindAsBreatheDirective(node.kind), node.name)
+                # include any specific directives for this doxygen directive
+                specifications = "{}\n\n".format(TextNode.directivesForKind(node.kind))
+                gen_file.write("{}{}{}{}".format(link_declaration, header, directive, specifications))
+        except:
+            exclaimError("Critical error while generating the file for [{}]".format(node.file_name))
+
+        node.file_name = node.file_name.split("/")[-1]
+
+    def generateNodeDocuments(self):
+        for cl in self.class_like:
+            self.generateSingleNodeRST(cl)
+
+
+    def generateViewHierarchies(self):
+        pass
+
+    def generateAPIRootHeader(self):
+        try:
+            if not os.path.isdir(self.root_directory):
+                os.mkdir(self.root_directory)
+        except Exception as e:
+            exclaimError("Cannot create the directory: {}\nError message: {}".format(self.root_directory, e))
+            return
+        try:
+            with open(self.full_root_file_path, "w") as generated_index:
+                generated_index.write("{}\n{}\n\n{}\n\n".format(self.root_file_title,
+                                                            EXHALE_FILE_HEADING,
+                                                            self.root_file_description))
+        except:
+            exclaimError("Unable to create the root api file / header: {}".format(self.full_root_file_path))
+
+    def generateAPIRootBody(self):
+        try:
+            with open(self.full_root_file_path, "a") as generated_index:
+                for cl in self.class_like:
+                    generated_index.write(
+                        ".. toctree::\n"
+                        "   :maxdepth: {}\n\n"
+                        "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, cl.file_name)
+                    )
+        except Exception as e:
+            exclaimError("Unable to create the root api body: {}".format(e))
+
+    def generateAPIRootSummary(self):
+        try:
+            with open(self.full_root_file_path, "a") as generated_index:
+                generated_index.write("{}\n\n".format(self.root_file_summary))
+        except Exception as e:
+            exclaimError("Unable to create the root api summary: {}".format(e))
+
+
+    def generateFullAPI(self):
+        '''
+        Since we are not going to use some of the breathe directives (e.g. namespace or
+        file), when representing the different views of the generated API we will need:
+
+        1. Generate a single file restructured text document for all of the nodes that
+           have either no children, or children that are leaf nodes.
+        2. When building the view hierarchies (class view and file view), provide a link
+           to the appropriate files generated previously.
+
+        If adding onto the framework to say add another view (from future import groups)
+        you would link from a restructured text document to one of the individually
+        generated files using the value of `Node.refid`.
+        '''
+        self.generateAPIRootHeader()
+        self.generateNodeDocuments()
+        self.generateViewHierarchies()
+        self.generateAPIRootBody()
+        self.generateAPIRootSummary()
+
     def __parse(self):
         for x in range(99):
             print("{}".format(x*"+"))
@@ -821,14 +999,11 @@ class TextRoot(object):
         self.fileRefDiscovery()
         self.filePostProcess()
 
-        self.namespaces.sort()
-        for n in self.namespaces:
-            n.typeSort()
+        self.sortInternals()
 
-        self.class_like.sort()
-        self.files.sort()
-        for f in self.files:
-            f.typeSort()
+        self.toConsole()
+
+        self.generateFullAPI()
 
 
 
@@ -864,203 +1039,11 @@ class TextRoot(object):
 
 
 
-        print("###########################################################")
-        print("## {}".format("Classes and Structs"))
-        print("###########################################################")
-        for n in self.class_like:
-            n.toConsole(0)
-        print("###########################################################")
-        print("## {}".format("Defines"))
-        print("###########################################################")
-        for n in self.defines:
-            n.toConsole(0)
-        print("###########################################################")
-        print("## {}".format("Enums"))
-        print("###########################################################")
-        for n in self.enums:
-            n.toConsole(0)
-        print("###########################################################")
-        print("## {}".format("Enum Values"))
-        print("###########################################################")
-        for n in self.enum_values:
-            n.toConsole(0)
-        print("###########################################################")
-        print("## {}".format("Functions"))
-        print("###########################################################")
-        for n in self.functions:
-            n.toConsole(0)
-        print("###########################################################")
-        print("## {}".format("Files"))
-        print("###########################################################")
-        for n in self.files:
-            n.toConsole(0)
-        print("###########################################################")
-        print("## {}".format("Directories"))
-        print("###########################################################")
-        for d in self.dirs:
-            d.toConsole(0)
-        print("###########################################################")
-        print("## {}".format("Groups"))
-        print("###########################################################")
-        for n in self.groups:
-            n.toConsole(0)
-        print("###########################################################")
-        print("## {}".format("Namespaces"))
-        print("###########################################################")
-        for n in self.namespaces:
-            n.toConsole(0)
-        print("###########################################################")
-        print("## {}".format("Typedefs"))
-        print("###########################################################")
-        for n in self.typedefs:
-            n.toConsole(0)
-        print("###########################################################")
-        print("## {}".format("Unions"))
-        print("###########################################################")
-        for n in self.unions:
-            n.toConsole(0)
-        print("###########################################################")
-        print("## {}".format("Variables"))
-        print("###########################################################")
-        for n in self.variables:
-            n.toConsole(0)
-        print("###########################################################")
-        print("###########################################################")
-        print("###########################################################")
-        print("## {}".format("Scoped Namespaces"))
-        print("###########################################################")
-        for sn in self.scoped_namespaces:
-            sn.toConsole(0)
 
 
         for x in range(99, 0, -1):
             print("{}".format(x*"+"))
 
-
-
-
-
-
-        # for compound in self.breathe_root.get_compound():
-        #     compound_name = compound.get_name()
-        #     compound_kind = compound.get_kind()
-        #     compound_refid = compound.get_refid()
-
-        #     self.all_compounds.append((compound, compound_kind, compound_name, compound_refid))
-
-        #     if compound_kind == "namespace":
-        #         # first time we are seeing this namespace
-        #         if compound_name not in self.namespace_names:
-        #             self.namespace_names.append(compound_name)
-        #             self.namespace_children[compound_name] = []
-        #     else:
-        #         parts = compound_name.split("::")
-        #         num_parts = len(parts)
-        #         if num_parts > 1:
-        #             if compound_kind != "union":
-        #                 namespace_name  = "::".join(p for p in parts[:-1])
-        #                 # first time we are seeing this namespace (e.g. before it appeared in breathe hierarchy)
-        #                 if namespace_name not in self.namespace_names:
-        #                     self.namespace_names.append(namespace_name)
-        #                     self.namespace_children[namespace_name] = []
-
-        #                 if compound_kind != "class" and compound_kind != "struct" and compound_kind == "variable":
-        #                     self.namespace_children[namespace_name].append((compound, compound_kind, compound_name, compound_refid))
-        #                     self.all_compounds.append((compound, compound_kind, compound_name, compound_refid))
-        #                 elif compound_kind != "variable":
-        #                     self.namespace_children[namespace_name].append((compound, compound_kind, compound_name, compound_refid))
-        #                     self.all_compounds.append((compound, compound_kind, compound_name, compound_refid))
-        #         elif compound_kind != "group" and compound_kind != "file" and compound_kind != "dir":
-        #             self.namespace_children["__global__namespace__"].append((compound, compound_kind, compound_name, compound_refid))
-
-        #     # if compound_kind != "class" and compound_kind != "struct" and "member" in compound.__dict__:
-        #     if "member" in compound.__dict__:
-        #         for n_compound in compound.get_member():
-        #             n_compound_name = n_compound.get_name()
-        #             n_compound_kind = n_compound.get_kind()
-        #             n_compound_refid = n_compound.get_refid()
-
-        #             # compound variables of structs and classes need to be ignored
-        #             if compound_kind != "class" and compound_kind != "struct" and compound_kind == "variable":
-        #                 # add everything to the namespaces
-        #                 if compound_kind == "namespace":
-        #                     self.namespace_children[compound_name].append((n_compound, n_compound_kind, n_compound_name, n_compound_refid))
-        #                 # add the variable to the list of all compounds
-        #                 self.all_compounds.append((n_compound, n_compound_kind, n_compound_name, n_compound_refid))
-        #             elif compound_kind != "variable":
-        #                 # add everything to the namespaces
-        #                 if compound_kind == "namespace":
-        #                     namespaced = compound_name.split("::")
-        #                     self.namespace_children[compound_name].append((n_compound, n_compound_kind, n_compound_name, n_compound_refid))
-        #                 # add the variable to the list of all compounds
-        #                 self.all_compounds.append((n_compound, n_compound_kind, n_compound_name, n_compound_refid))
-
-        #     #
-        #     # classify the current compound for building the index tree
-        #     #
-        #     # namespaces are treated specially
-        #     if compound_kind == "namespace":
-        #         namespace_node = TextNode(self, compound, compound_name, compound_kind)
-        #         self.namespaces.append(namespace_node)
-
-        #         # namespaces have some members such as `enum` correctly listed in the
-        #         # breathe compound's member list
-        #         for member in compound.get_member():
-        #             member_name = member.get_name()
-        #             member_kind = member.get_kind()
-        #             namespace_node.namespaced_add_child(TextNode(self, member, member_name, member_kind))
-
-        #     # files are treated specially
-        #     elif compound_kind == "file":
-        #         file_node = TextNode(self, compound, compound_name, compound_kind)
-        #         self.files.append(file_node)
-
-        #         # files have members such as 'define' or 'function'
-        #         # for member in compound.get_member():
-        #         #     member_name = member.get_name()
-        #         #     member_kind = member.get_kind()
-        #         #     file_node.add_child(TextNode(self, member, member_name, member_kind))
-
-        #     # # directories are treated specially
-        #     # elif compound_kind == "dir":
-        #     #     pass
-        #     #     # print("DIR: {}".format(compound_name))
-        #     #     # for m in compound.get_member():
-        #     #     #     print("  {}: {}".format(m.get_name(), m.get_kind()))
-
-        #     # unions appear to be completely broken in breathe, groups do not have their members
-        #     elif compound_kind == "union":# or compound_kind == "group":
-        #         pass
-
-        #     # At this point, we have already checked for
-        #     #
-        #     #   - namespace
-        #     #   - file
-        #     #   - dir
-        #     #   - union and group (ignore)
-        #     #
-        #     # and are left with the following types that are either already owned by a
-        #     # 'file' or a 'namespace':
-        #     #
-        #     #   - define
-        #     #   - function
-        #     #   - typedef
-        #     #   - variable
-        #     #
-        #     # so the above will either appear in a 'get_member()' list from 'file' or
-        #     # 'namespace'.  What remains is for us to process the class-like objects:
-        #     #
-        #     #   - class
-        #     #   - struct
-        #     #
-        #     # and check the name of them, to subclass them to the appropriate namespace
-        #     # if / where applicable.  Before that can be done, though, the nested
-        #     # namespaces need to be arranged first.
-        #     elif compound_kind == "class" or compound_kind == "struct":
-        #         self.class_like.append(TextNode(self, compound, compound_name, compound_kind))
-        #     else:
-        #         print("*********************** 999999999999999999999")
-        #         self.top_level.append(TextNode(self, compound, compound_name, compound_kind))
 
     def __post_process(self):
         # First, we need to account for nested namespaces
