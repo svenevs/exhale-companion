@@ -14,7 +14,11 @@ NAMESPACE_BEGIN(arbitrary)
 
 /// Testing a nested namespace.
 namespace nested {
-    /// Just a simple coupling of two integers as x and y.
+    /**
+     * \struct int2 BaseClass.h arbitrary/BaseClass.h
+     *
+     * \brief Just a simple coupling of two integers as x and y.
+     */
     struct int2 {
         /// Default constructor: (0, 0).
         int2() : x(0), y(0) {}
@@ -29,7 +33,11 @@ namespace nested {
     };
 
     namespace dual_nested {
-        /// The `int3` struct is just a simple coupling of three integers as x, y, and z.
+        /**
+         * \struct int3 BaseClass.h arbitrary/BaseClass.h
+         *
+         * \brief The `int3` struct is just a simple coupling of three integers as x, y, and z.
+         */
         struct int3 {
             /// Default constructor: (0, 0, 0).
             int3() : x(0), y(0), z(0) {}
@@ -51,6 +59,8 @@ namespace nested {
  * \addtogroup Common
  *
  * @{
+ *
+ * \class BaseClass BaseClass.h arbitrary/BaseClass.h
  *
  * A fully documented class for inheriting from.
  */

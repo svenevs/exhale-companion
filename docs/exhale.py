@@ -217,6 +217,8 @@ class TextNode(object):
             directive = "doxygenvariable"
         elif kind == "file":
             directive = "doxygenfile"
+        elif kind == "union":
+            directive = "doxygenunion"
 
         return directive
 
@@ -910,7 +912,7 @@ class TextRoot(object):
                 # generate a link label for every generated file
                 link_declaration = ".. _{}:\n\n".format(node.refid)
                 # every generated file must have a header for sphinx to be happy
-                header = "{}\n{}\n\n".format(node.name.split("::")[-1], EXHALE_FILE_HEADING)
+                header = "{}\n{}\n\n".format(node.name, EXHALE_FILE_HEADING)
                 # inject the appropriate doxygen directive and name of this node
                 directive = ".. {}:: {}\n".format(TextNode.kindAsBreatheDirective(node.kind), node.name)
                 # include any specific directives for this doxygen directive
@@ -924,7 +926,16 @@ class TextRoot(object):
     def generateNodeDocuments(self):
         for cl in self.class_like:
             self.generateSingleNodeRST(cl)
-
+        for e in self.enums:
+            self.generateSingleNodeRST(e)
+        for f in self.functions:
+            self.generateSingleNodeRST(f)
+        for t in self.typedefs:
+            self.generateSingleNodeRST(t)
+        for u in self.unions:
+            self.generateSingleNodeRST(u)
+        for v in self.variables:
+            self.generateSingleNodeRST(v)
 
     def generateViewHierarchies(self):
         pass
@@ -953,6 +964,39 @@ class TextRoot(object):
                         "   :maxdepth: {}\n\n"
                         "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, cl.file_name)
                     )
+                for e in self.enums:
+                    generated_index.write(
+                        ".. toctree::\n"
+                        "   :maxdepth: {}\n\n"
+                        "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, e.file_name)
+                    )
+                for f in self.functions:
+                    generated_index.write(
+                        ".. toctree::\n"
+                        "   :maxdepth: {}\n\n"
+                        "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, f.file_name)
+                    )
+
+                for t in self.typedefs:
+                    generated_index.write(
+                        ".. toctree::\n"
+                        "   :maxdepth: {}\n\n"
+                        "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, t.file_name)
+                    )
+                for u in self.unions:
+                    generated_index.write(
+                        ".. toctree::\n"
+                        "   :maxdepth: {}\n\n"
+                        "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, u.file_name)
+                    )
+                for v in self.variables:
+                    generated_index.write(
+                        ".. toctree::\n"
+                        "   :maxdepth: {}\n\n"
+                        "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, v.file_name)
+                    )
+
+
         except Exception as e:
             exclaimError("Unable to create the root api body: {}".format(e))
 

@@ -78,7 +78,11 @@ union SupremeUnion {
 };
 
 namespace arbitrary {
-    /// This is a union in a namespace.
+    /**
+     * \union NamespacedUnion common.h arbitrary/common.h
+     *
+     * \brief This is a union in a namespace.
+     */
     union NamespacedUnion {
         std::int32_t n;     // occupies 4 bytes
         std::uint16_t s[2]; // occupies 4 bytes

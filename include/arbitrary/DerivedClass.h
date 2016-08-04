@@ -14,7 +14,7 @@
 
 NAMESPACE_BEGIN(arbitrary)
 
-/// A bitmasking enum for determining what the current camera actions are.
+///A bitmasking enum for determining what the current camera actions are.
 enum CAMERA_STATES {
     /// Camera state is not changing.
     CAM_NONE      = (1 << 0),
@@ -27,7 +27,9 @@ enum CAMERA_STATES {
 };
 
 /**
- * A derivation class of `BaseClass` serving as an extremely rudimentary array wrapper.
+ * \class DerivedClass DerivedClass.h arbitrary/DerivedClass.h
+ *
+ * \brief A derivation class of `BaseClass` serving as an extremely rudimentary array wrapper.
  */
 template <typename T, unsigned int N>
 class DerivedClass : public BaseClass {
