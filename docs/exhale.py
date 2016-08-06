@@ -16,6 +16,8 @@ EXHALE_API_DOXY_OUTPUT_DIR = ""
 
 EXHALE_FILE_HEADING = "=" * 88
 
+EXHALE_SECTION_HEADING = "-" * 88
+
 def generate(root_generated_directory, root_generated_file, root_generated_title,
                        root_after_title_description, root_after_body_summary, doxygen_xml_index_path,
                        toctree_max_depth=5):
@@ -149,7 +151,7 @@ class TextNode(object):
         #     self.children.pop(idx)
 
     @classmethod
-    def qualifyKind(cls, kind):
+    def qualifyKind(cls, kind, short=False):
         """
         Qualifies the breathe ``kind`` and returns an qualifier string describing this
         to be used for the text output.
@@ -170,27 +172,57 @@ class TextNode(object):
         """
         qualifier = ""
         if kind == "class":
-            qualifier = "(class)"
+            if short:
+                qualifier = "(C)"
+            else:
+                qualifier = "Class"
         elif kind == "struct":
-            qualifier = "(struct)"
+            if short:
+                qualifier = "(S)"
+            else:
+                qualifier = "Struct"
         elif kind == "function":
-            qualifier = "(fun)"
+            if short:
+                qualifier = "(Fn)"
+            else:
+                qualifier = "Function"
         elif kind == "enum":
-            qualifier = "(enum)"
-        elif kind == "enumvalue":
-            pass
+            if short:
+                qualifier = "(E)"
+            else:
+                qualifier = "Enum"
+        # elif kind == "enumvalue":
+        #     pass
         elif kind == "namespace":
-            qualifier = "(nspace)"
+            if short:
+                qualifier = "(N)"
+            else:
+                qualifier = "Namespace"
         elif kind == "define":
-            qualifier = "(def)"
+            if short:
+                qualifier = "(D)"
+            else:
+                qualifier = "Define"
         elif kind == "typedef":
-            qualifier = "(tdef)"
+            if short:
+                qualifier = "(T)"
+            else:
+                qualifier = "Typedef"
         elif kind == "variable":
-            qualifier = "(var)"
+            if short:
+                qualifier = "(V)"
+            else:
+                qualifier = "Variable"
         elif kind == "file":
-            qualifier = "(file)"
-        else:
-            qualifier = "(_<<<{}>>>_)".format(kind)
+            if short:
+                qualifier = "(F)"
+            else:
+                qualifier = "File"
+        elif kind == "union":
+            if short:
+                qualifier = "(U)"
+            else:
+                qualifier = "Union"
 
         return qualifier
 
@@ -371,6 +403,7 @@ class Node:
             self.program_listing = []
 
         self.file_name = ""
+        self.link_name = ""
 
     def __lt__(self, other):
         # allows alphabetical sorting within types
@@ -389,6 +422,12 @@ class Node:
         # otherwise, sort based off the kind
         else:
             return self.kind < other.kind
+
+    def findNestedNamespaces(self, lst):
+        if self.kind == "namespace":
+            lst.append(self)
+        for c in self.children:
+            c.findNestedNamespaces(lst)
 
     def toConsole(self, level, print_children=True):
         indent = "  " * level
@@ -572,6 +611,9 @@ class TextRoot(object):
 
         removes reparented unions
         '''
+        # unions declared in a class will not link to the individual union page, so
+        # we will instead elect to remove these from the list of unions
+        removals = []
         for u in self.unions:
             parts = u.name.split("::")
             num_parts = len(parts)
@@ -591,6 +633,7 @@ class TextRoot(object):
                             break
 
                     if reparented:
+                        removals.append(u)
                         continue
 
                     # otherwise, see if it belongs to a namespace
@@ -612,6 +655,7 @@ class TextRoot(object):
                             break
 
                     if reparented:
+                        removals.append(u)
                         continue
 
                     # next see if it belongs to a namespace
@@ -619,6 +663,10 @@ class TextRoot(object):
                         if n.name == name_or_class_name:
                             n.children.append(u)
                             break
+
+        # remove the unions from self.unions that were declared in class_like objects
+        for rm in removals:
+            self.unions.remove(rm)
 
     def reparentClassLike(self):
         '''
@@ -907,12 +955,13 @@ class TextRoot(object):
             print("**********************{}*******************".format(node.name))
 
         node.file_name = "{}/exhale_{}_{}.rst".format(self.root_directory, node.kind, node.name.replace(":", "_"))
+        node.link_name = node.name.replace(":", "_")
         try:
             with open(node.file_name, "w") as gen_file:
                 # generate a link label for every generated file
-                link_declaration = ".. _{}:\n\n".format(node.refid)
+                link_declaration = ".. _{}:\n\n".format(node.link_name)
                 # every generated file must have a header for sphinx to be happy
-                header = "{}\n{}\n\n".format(node.name, EXHALE_FILE_HEADING)
+                header = "{} {} Reference\n{}\n\n".format(TextNode.qualifyKind(node.kind), node.name.split("::")[-1], EXHALE_FILE_HEADING)
                 # inject the appropriate doxygen directive and name of this node
                 directive = ".. {}:: {}\n".format(TextNode.kindAsBreatheDirective(node.kind), node.name)
                 # include any specific directives for this doxygen directive
@@ -921,6 +970,9 @@ class TextRoot(object):
         except:
             exclaimError("Critical error while generating the file for [{}]".format(node.file_name))
 
+        # generation of the file needs to happen relative to conf.py, but the remainder
+        # of the time we want to use a toctree or include we want a filename relative
+        # to the location of the exhale generated_api
         node.file_name = node.file_name.split("/")[-1]
 
     def generateNodeDocuments(self):
@@ -936,6 +988,120 @@ class TextRoot(object):
             self.generateSingleNodeRST(u)
         for v in self.variables:
             self.generateSingleNodeRST(v)
+        self.generateNamespaceNodeDocuments()
+
+    def generateSingleNamespace(self, nspace):
+        qualifier = TextNode.qualifyKind(nspace.kind)
+        if qualifier != "":
+            qualifier = "{} : ".format(qualifier)
+        else:
+            print("**********************{}*******************".format(nspace.name))
+
+        nspace.file_name = "{}/exhale_{}_{}.rst".format(self.root_directory, nspace.kind, nspace.name.replace(":", "_"))
+        nspace.link_name = nspace.name.replace(":", "_")
+        try:
+            with open(nspace.file_name, "w") as gen_file:
+                # generate a link label for every generated file
+                link_declaration = ".. _{}:\n\n".format(nspace.link_name)
+                # every generated file must have a header for sphinx to be happy
+                header = "{} {} Reference\n{}\n\n".format(TextNode.qualifyKind(nspace.kind), nspace.name, EXHALE_FILE_HEADING)
+                # inject the appropriate doxygen directive and name of this namespace
+                # directive = ".. {}:: {}\n".format(TextNode.kindAsBreatheDirective(nspace.kind), nspace.name)
+                # include any specific directives for this doxygen directive
+                # specifications = "{}\n\n".format(TextNode.directivesForKind(nspace.kind))
+                children_string = ""
+                nsp_namespaces = []
+                nsp_structs = []
+                nsp_classes = []
+                nsp_functions = []
+                nsp_typedefs = []
+                nsp_unions = []
+                nsp_variables = []
+                for child in nspace.children:
+                    if child.kind == "namespace":
+                        nsp_namespaces.append(child)
+                    elif child.kind == "struct":
+                        nsp_structs.append(child)
+                    elif child.kind == "class":
+                        nsp_classes.append(child)
+                    elif child.kind == "function":
+                        nsp_functions.append(child)
+                    elif child.kind == "typedef":
+                        nsp_typedefs.append(child)
+                    elif child.kind == "union":
+                        nsp_unions.append(child)
+                    elif child.kind == "variable":
+                        nsp_variables.append(child)
+
+                if nsp_namespaces:
+                    nsp_namespaces.sort()
+                    children_string = "{}\n\nNamespaces:\n{}\n".format(children_string, EXHALE_SECTION_HEADING)
+                    for nsp_n in nsp_namespaces:
+                        children_string = "{}\n- :ref:`{}`".format(children_string, nsp_n.link_name)
+
+                if nsp_structs or nsp_classes:
+                    nsp_structs.sort()
+                    nsp_classes.sort()
+                    children_string = "{}\n\nClasses:\n{}\n".format(children_string, EXHALE_SECTION_HEADING)
+                    for nsp_c in nsp_classes:
+                        children_string = "{}\n- :ref:`{}`".format(children_string, nsp_c.link_name)
+                    for nsp_s in nsp_structs:
+                        children_string = "{}\n- :ref:`{}`".format(children_string, nsp_s.link_name)
+
+                if nsp_functions:
+                    nsp_functions.sort()
+                    children_string = "{}\n\nFunctions:\n{}\n".format(children_string, EXHALE_SECTION_HEADING)
+                    for nsp_f in nsp_functions:
+                        children_string = "{}\n- :ref:`{}`".format(children_string, nsp_f.link_name)
+
+                if nsp_typedefs:
+                    nsp_typedefs.sort()
+                    children_string = "{}\n\nTypedefs:\n{}\n".format(children_string, EXHALE_SECTION_HEADING)
+                    for nsp_t in nsp_typedefs:
+                        children_string = "{}\n- :ref:`{}`".format(children_string, nsp_t.link_name)
+
+                if nsp_unions:
+                    nsp_unions.sort()
+                    children_string = "{}\n\nNamespaces:\n{}\n".format(children_string, EXHALE_SECTION_HEADING)
+                    for nsp_u in nsp_unions:
+                        children_string = "{}\n- :ref:`{}`".format(children_string, nsp_u.link_name)
+
+                if nsp_variables:
+                    nsp_variables.sort()
+                    children_string = "{}\n\nVariables:\n{}\n".format(children_string, EXHALE_SECTION_HEADING)
+                    for nsp_v in nsp_variables:
+                        children_string = "{}\n- :ref:`{}`".format(children_string, nsp_v.link_name)
+
+
+                # for child in nspace.children:
+                #     children_string = "{}\n- :ref:`{}`".format(children_string, child.link_name)
+                gen_file.write("{}{}{}\n\n".format(link_declaration, header, children_string))
+        except:
+            exclaimError("Critical error while generating the file for [{}]".format(nspace.file_name))
+
+        # generation of the file needs to happen relative to conf.py, but the remainder
+        # of the time we want to use a toctree or include we want a filename relative
+        # to the location of the exhale generated_api
+        nspace.file_name = nspace.file_name.split("/")[-1]
+
+    def generateNamespaceNodeDocuments(self):
+
+        # go through all of the top level namespaces
+        for n in self.namespaces:
+            # find any nested namespaces
+            nested_namespaces = []
+            for child in n.children:
+                child.findNestedNamespaces(nested_namespaces)
+
+            for nested in reversed(sorted(nested_namespaces)):
+                self.generateSingleNamespace(nested)
+
+            self.generateSingleNamespace(n)
+
+
+
+    def generateClassView(self):
+        pass
 
     def generateViewHierarchies(self):
         pass
@@ -958,43 +1124,49 @@ class TextRoot(object):
     def generateAPIRootBody(self):
         try:
             with open(self.full_root_file_path, "a") as generated_index:
-                for cl in self.class_like:
-                    generated_index.write(
-                        ".. toctree::\n"
-                        "   :maxdepth: {}\n\n"
-                        "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, cl.file_name)
-                    )
-                for e in self.enums:
-                    generated_index.write(
-                        ".. toctree::\n"
-                        "   :maxdepth: {}\n\n"
-                        "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, e.file_name)
-                    )
-                for f in self.functions:
-                    generated_index.write(
-                        ".. toctree::\n"
-                        "   :maxdepth: {}\n\n"
-                        "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, f.file_name)
-                    )
+                for n in self.namespaces:
+                        generated_index.write(
+                            ".. toctree::\n"
+                            "   :maxdepth: {}\n\n"
+                            "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, n.file_name)
+                        )
+                # for cl in self.class_like:
+                #     generated_index.write(
+                #         ".. toctree::\n"
+                #         "   :maxdepth: {}\n\n"
+                #         "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, cl.file_name)
+                #     )
+                # for e in self.enums:
+                #     generated_index.write(
+                #         ".. toctree::\n"
+                #         "   :maxdepth: {}\n\n"
+                #         "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, e.file_name)
+                #     )
+                # for f in self.functions:
+                #     generated_index.write(
+                #         ".. toctree::\n"
+                #         "   :maxdepth: {}\n\n"
+                #         "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, f.file_name)
+                #     )
 
-                for t in self.typedefs:
-                    generated_index.write(
-                        ".. toctree::\n"
-                        "   :maxdepth: {}\n\n"
-                        "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, t.file_name)
-                    )
-                for u in self.unions:
-                    generated_index.write(
-                        ".. toctree::\n"
-                        "   :maxdepth: {}\n\n"
-                        "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, u.file_name)
-                    )
-                for v in self.variables:
-                    generated_index.write(
-                        ".. toctree::\n"
-                        "   :maxdepth: {}\n\n"
-                        "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, v.file_name)
-                    )
+                # for t in self.typedefs:
+                #     generated_index.write(
+                #         ".. toctree::\n"
+                #         "   :maxdepth: {}\n\n"
+                #         "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, t.file_name)
+                #     )
+                # for u in self.unions:
+                #     generated_index.write(
+                #         ".. toctree::\n"
+                #         "   :maxdepth: {}\n\n"
+                #         "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, u.file_name)
+                #     )
+                # for v in self.variables:
+                #     generated_index.write(
+                #         ".. toctree::\n"
+                #         "   :maxdepth: {}\n\n"
+                #         "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, v.file_name)
+                #     )
 
 
         except Exception as e:
@@ -1020,7 +1192,7 @@ class TextRoot(object):
 
         If adding onto the framework to say add another view (from future import groups)
         you would link from a restructured text document to one of the individually
-        generated files using the value of `Node.refid`.
+        generated files using the value of `Node.link_name`.
         '''
         self.generateAPIRootHeader()
         self.generateNodeDocuments()
@@ -1042,6 +1214,12 @@ class TextRoot(object):
 
         self.fileRefDiscovery()
         self.filePostProcess()
+
+        # we potentially just found additional variables, enums, typedefs, etc that got
+        # parented to different files / namespaces...but they will not have the correct
+        # namespace name prepended since we parsed the programlisting
+        # self.renameToNamespaceScopes()
+        # -WBROKEN??? breathe examples are fine though...
 
         self.sortInternals()
 

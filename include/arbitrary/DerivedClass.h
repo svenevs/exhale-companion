@@ -34,7 +34,10 @@ enum CAMERA_STATES {
 template <typename T, unsigned int N>
 class DerivedClass : public BaseClass {
 public:
-    /// Initializes the `BaseClass` field ``some_data`` to be the template parameter `N`.
+    /// A typedef to see what happens in the hierarchy.
+    typedef T SuperParent;
+
+    /// Initializes the `BaseClass` field `BaseClass::some_data` to be the template parameter `N`.
     DerivedClass() : BaseClass(N) {}
 
     /// The default destructor; does nothing.

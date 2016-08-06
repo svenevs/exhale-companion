@@ -29,7 +29,11 @@ namespace external {
     static constexpr unsigned int MAX_DEPTH = 12;
 }
 
-/// A serializable parameters struct that nobody would ever actually use like this.
+/**
+ * \struct super_params common.h arbitrary/common.h
+ *
+ * A serializable parameters struct that nobody would ever actually use like this.
+ */
 struct super_params {
     /// Creates a `super_params` struct with `x`, `y`, and `z` initialized to ``0.0f``;
     super_params() : x(0.0f), y(0.0f), z(0.0f) {}
@@ -48,7 +52,11 @@ struct super_params {
      */
     super_params(float _x, float _y, float _z) : x(_x), y(_y), z(_z) {}
 
-    /// A union of sorts.
+    /**
+     * \union U common.h arbitrary/common.h
+     *
+     * A union of sorts.
+     */
     union U {
         /// One way of looking at things.
         int first_view;
@@ -70,7 +78,11 @@ static float common_float_variable = 12.21f;
 /// An extra useful typedef to make your readers happy.
 typedef bool super_bool;
 
-/// The most supreme unions of them all.
+/**
+ * \union SupremeUnion common.h arbitrary/common.h
+ *
+ * \brief The most supreme unions of them all.
+ */
 union SupremeUnion {
     std::int32_t n;     // occupies 4 bytes
     std::uint16_t s[2]; // occupies 4 bytes
@@ -90,7 +102,10 @@ namespace arbitrary {
     };
 
     namespace nested {
-        /// This is a union in a a _nested_ namespace.
+        /**
+         * \union NestedNamespacedUnion common.h arbitrary/common.h
+         * \brief This is a union in a a _nested_ namespace.
+         */
         union NestedNamespacedUnion {
             std::int32_t n;     // occupies 4 bytes
             std::uint16_t s[2]; // occupies 4 bytes
@@ -98,12 +113,25 @@ namespace arbitrary {
         };
     }
 
+    /// a secondary namespace
+    namespace second_nested {
+        /// Sort test for namespace hierarchies.
+        static constexpr double SN = 99.99;
+
+        /// After ref discovery processing verification.
+        typedef void death_star;
+    }
+
     /// At a first glance, it doesn't seem arbitrary.
     bool arbitraryFunction() {
         return false;
     }
 
-    /// Hem meh he mehemmeh.
+    /**
+     * \struct arbitrary_struct common.h arbitrary/common.h
+     *
+     * Yet another namespaced and overly arbitrary struct.
+     */
     struct arbitrary_struct {
         /// Mehem
         int meh = 11;
