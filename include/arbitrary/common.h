@@ -30,9 +30,7 @@ namespace external {
 }
 
 /**
- * \struct super_params common.h arbitrary/common.h
- *
- * A serializable parameters struct that nobody would ever actually use like this.
+ * \brief A serializable parameters struct that nobody would ever actually use like this.
  */
 struct super_params {
     /// Creates a `super_params` struct with `x`, `y`, and `z` initialized to ``0.0f``;
@@ -99,6 +97,15 @@ namespace arbitrary {
         std::int32_t n;     // occupies 4 bytes
         std::uint16_t s[2]; // occupies 4 bytes
         std::uint8_t c;     // occupies 1 byte
+    };
+
+    /// Testing sort with combined struct and class list.
+    struct zed_struct {
+        /// constructs a zed
+        zed_struct(int _z) : z(_z) {}
+
+        /// the zed
+        int z;
     };
 
     namespace nested {

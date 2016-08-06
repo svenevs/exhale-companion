@@ -404,6 +404,7 @@ class Node:
 
         self.file_name = ""
         self.link_name = ""
+        self.in_class_view = False
 
     def __lt__(self, other):
         # allows alphabetical sorting within types
@@ -961,7 +962,7 @@ class TextRoot(object):
                 # generate a link label for every generated file
                 link_declaration = ".. _{}:\n\n".format(node.link_name)
                 # every generated file must have a header for sphinx to be happy
-                header = "{} {} Reference\n{}\n\n".format(TextNode.qualifyKind(node.kind), node.name.split("::")[-1], EXHALE_FILE_HEADING)
+                header = "{} {}\n{}\n\n".format(TextNode.qualifyKind(node.kind), node.name.split("::")[-1], EXHALE_FILE_HEADING)
                 # inject the appropriate doxygen directive and name of this node
                 directive = ".. {}:: {}\n".format(TextNode.kindAsBreatheDirective(node.kind), node.name)
                 # include any specific directives for this doxygen directive
@@ -990,6 +991,52 @@ class TextRoot(object):
             self.generateSingleNodeRST(v)
         self.generateNamespaceNodeDocuments()
 
+    def generateSortedChildListString(self, section_title, previous_string, lst):
+        if lst:
+            lst.sort()
+            new_string = "{}\n\n{}\n{}\n".format(previous_string, section_title, EXHALE_SECTION_HEADING)
+            for l in lst:
+                new_string = "{}\n- :ref:`{}`".format(new_string, l.link_name)
+            return new_string
+        else:
+            return previous_string
+
+    def generateNamespaceChildrenString(self, nspace):
+        # sort the children
+        nsp_namespaces = []
+        nsp_structs    = []
+        nsp_classes    = []
+        nsp_functions  = []
+        nsp_typedefs   = []
+        nsp_unions     = []
+        nsp_variables  = []
+        for child in nspace.children:
+            if child.kind == "namespace":
+                nsp_namespaces.append(child)
+            elif child.kind == "struct":
+                nsp_structs.append(child)
+            elif child.kind == "class":
+                nsp_classes.append(child)
+            elif child.kind == "function":
+                nsp_functions.append(child)
+            elif child.kind == "typedef":
+                nsp_typedefs.append(child)
+            elif child.kind == "union":
+                nsp_unions.append(child)
+            elif child.kind == "variable":
+                nsp_variables.append(child)
+
+        # generate their headings if they exist
+        children_string = self.generateSortedChildListString("Namespaces", "", nsp_namespaces)
+        children_string = self.generateSortedChildListString("Classes", children_string, nsp_structs + nsp_classes)
+        children_string = self.generateSortedChildListString("Functions", children_string, nsp_functions)
+        children_string = self.generateSortedChildListString("Typedefs", children_string, nsp_typedefs)
+        children_string = self.generateSortedChildListString("Unions", children_string, nsp_unions)
+        children_string = self.generateSortedChildListString("Variables", children_string, nsp_variables)
+
+        return children_string
+
+
     def generateSingleNamespace(self, nspace):
         qualifier = TextNode.qualifyKind(nspace.kind)
         if qualifier != "":
@@ -1004,77 +1051,10 @@ class TextRoot(object):
                 # generate a link label for every generated file
                 link_declaration = ".. _{}:\n\n".format(nspace.link_name)
                 # every generated file must have a header for sphinx to be happy
-                header = "{} {} Reference\n{}\n\n".format(TextNode.qualifyKind(nspace.kind), nspace.name, EXHALE_FILE_HEADING)
-                # inject the appropriate doxygen directive and name of this namespace
-                # directive = ".. {}:: {}\n".format(TextNode.kindAsBreatheDirective(nspace.kind), nspace.name)
-                # include any specific directives for this doxygen directive
-                # specifications = "{}\n\n".format(TextNode.directivesForKind(nspace.kind))
-                children_string = ""
-                nsp_namespaces = []
-                nsp_structs = []
-                nsp_classes = []
-                nsp_functions = []
-                nsp_typedefs = []
-                nsp_unions = []
-                nsp_variables = []
-                for child in nspace.children:
-                    if child.kind == "namespace":
-                        nsp_namespaces.append(child)
-                    elif child.kind == "struct":
-                        nsp_structs.append(child)
-                    elif child.kind == "class":
-                        nsp_classes.append(child)
-                    elif child.kind == "function":
-                        nsp_functions.append(child)
-                    elif child.kind == "typedef":
-                        nsp_typedefs.append(child)
-                    elif child.kind == "union":
-                        nsp_unions.append(child)
-                    elif child.kind == "variable":
-                        nsp_variables.append(child)
-
-                if nsp_namespaces:
-                    nsp_namespaces.sort()
-                    children_string = "{}\n\nNamespaces:\n{}\n".format(children_string, EXHALE_SECTION_HEADING)
-                    for nsp_n in nsp_namespaces:
-                        children_string = "{}\n- :ref:`{}`".format(children_string, nsp_n.link_name)
-
-                if nsp_structs or nsp_classes:
-                    nsp_structs.sort()
-                    nsp_classes.sort()
-                    children_string = "{}\n\nClasses:\n{}\n".format(children_string, EXHALE_SECTION_HEADING)
-                    for nsp_c in nsp_classes:
-                        children_string = "{}\n- :ref:`{}`".format(children_string, nsp_c.link_name)
-                    for nsp_s in nsp_structs:
-                        children_string = "{}\n- :ref:`{}`".format(children_string, nsp_s.link_name)
-
-                if nsp_functions:
-                    nsp_functions.sort()
-                    children_string = "{}\n\nFunctions:\n{}\n".format(children_string, EXHALE_SECTION_HEADING)
-                    for nsp_f in nsp_functions:
-                        children_string = "{}\n- :ref:`{}`".format(children_string, nsp_f.link_name)
-
-                if nsp_typedefs:
-                    nsp_typedefs.sort()
-                    children_string = "{}\n\nTypedefs:\n{}\n".format(children_string, EXHALE_SECTION_HEADING)
-                    for nsp_t in nsp_typedefs:
-                        children_string = "{}\n- :ref:`{}`".format(children_string, nsp_t.link_name)
-
-                if nsp_unions:
-                    nsp_unions.sort()
-                    children_string = "{}\n\nNamespaces:\n{}\n".format(children_string, EXHALE_SECTION_HEADING)
-                    for nsp_u in nsp_unions:
-                        children_string = "{}\n- :ref:`{}`".format(children_string, nsp_u.link_name)
-
-                if nsp_variables:
-                    nsp_variables.sort()
-                    children_string = "{}\n\nVariables:\n{}\n".format(children_string, EXHALE_SECTION_HEADING)
-                    for nsp_v in nsp_variables:
-                        children_string = "{}\n- :ref:`{}`".format(children_string, nsp_v.link_name)
-
-
-                # for child in nspace.children:
-                #     children_string = "{}\n- :ref:`{}`".format(children_string, child.link_name)
+                header = "{} {}\n{}\n\n".format(TextNode.qualifyKind(nspace.kind), nspace.name, EXHALE_FILE_HEADING)
+                # generate the headings and links for the children
+                children_string = self.generateNamespaceChildrenString(nspace)
+                # write it all out
                 gen_file.write("{}{}{}\n\n".format(link_declaration, header, children_string))
         except:
             exclaimError("Critical error while generating the file for [{}]".format(nspace.file_name))
@@ -1085,26 +1065,62 @@ class TextRoot(object):
         nspace.file_name = nspace.file_name.split("/")[-1]
 
     def generateNamespaceNodeDocuments(self):
-
         # go through all of the top level namespaces
         for n in self.namespaces:
             # find any nested namespaces
             nested_namespaces = []
             for child in n.children:
                 child.findNestedNamespaces(nested_namespaces)
-
+            # generate the children first
             for nested in reversed(sorted(nested_namespaces)):
                 self.generateSingleNamespace(nested)
-
+            # generate this top level namespace
             self.generateSingleNamespace(n)
 
-
-
     def generateClassView(self):
-        pass
+        class_view = "Class Hierarchy\n{}\n".format(EXHALE_SECTION_HEADING)
+        for n in self.namespaces:
+            nested_namespaces = []
+            for child in n.children:
+                child.findNestedNamespaces(nested_namespaces)
+
+            level = 0
+            nested_namespaces.insert(0, n)
+            for nspace in sorted(nested_namespaces):
+                # determine if this namespace has any relevant children to list
+                relevant_children = []
+                for child in nspace.children:
+                    if child.kind == "struct" or child.kind == "class" or child.kind == "union" or child.kind == "enum":
+                        relevant_children.append(child)
+                if len(relevant_children) > 0:
+                    indent = "    " * level
+                    class_view = "{}\n{}- :ref:`{}`".format(class_view, indent, nspace.link_name)
+                    child_indent = "    " * (level + 1)
+                    if level+1 > 2:
+                        continue
+                    for rc in relevant_children:
+                        class_view = "{}\n{}- :ref:`{}`".format(class_view, child_indent, rc.link_name)
+                        rc.in_class_view = True
+                level += 1
+
+        # Now add everything that was defined at the top level
+        class_like = "{}\n- Top-level:".format(class_view)
+        missing_class_like = []
+        for cl in self.class_like:
+            if not cl.in_class_view:
+                missing_class_like.append(cl)
+                cl.in_class_view = True
+        for missing_cl in missing_class_like:
+            # self.generateSingleNodeRST(missing_cl)
+            class_view = "{}\n    - :ref:`{}`".format(class_view, missing_cl.link_name)
+            missing_cl.in_class_view = True
+
+        return class_view
+
 
     def generateViewHierarchies(self):
-        pass
+        class_view = self.generateClassView()
+        return "{}\n\n".format(class_view)
 
     def generateAPIRootHeader(self):
         try:
@@ -1123,13 +1139,68 @@ class TextRoot(object):
 
     def generateAPIRootBody(self):
         try:
-            with open(self.full_root_file_path, "a") as generated_index:
+            with open(self.full_root_file_path + "__FAKEOUT.rst", "w") as fakeout:
+                fakeout.write(".. _FAKEOUT:\n\n")
+                fakeout.write("FAKEOUT\n{}\n".format(EXHALE_FILE_HEADING))
                 for n in self.namespaces:
-                        generated_index.write(
+                        fakeout.write(
                             ".. toctree::\n"
                             "   :maxdepth: {}\n\n"
                             "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, n.file_name)
                         )
+
+                for cl in self.class_like:
+                    fakeout.write(
+                        ".. toctree::\n"
+                        "   :maxdepth: {}\n\n"
+                        "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, cl.file_name)
+                    )
+                for e in self.enums:
+                    fakeout.write(
+                        ".. toctree::\n"
+                        "   :maxdepth: {}\n\n"
+                        "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, e.file_name)
+                    )
+                for f in self.functions:
+                    fakeout.write(
+                        ".. toctree::\n"
+                        "   :maxdepth: {}\n\n"
+                        "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, f.file_name)
+                    )
+
+                for t in self.typedefs:
+                    fakeout.write(
+                        ".. toctree::\n"
+                        "   :maxdepth: {}\n\n"
+                        "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, t.file_name)
+                    )
+                for u in self.unions:
+                    fakeout.write(
+                        ".. toctree::\n"
+                        "   :maxdepth: {}\n\n"
+                        "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, u.file_name)
+                    )
+                for v in self.variables:
+                    fakeout.write(
+                        ".. toctree::\n"
+                        "   :maxdepth: {}\n\n"
+                        "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, v.file_name)
+                    )
+            views = self.generateViewHierarchies()
+            with open(self.full_root_file_path, "a") as generated_index:
+                generated_index.write(
+                    ".. toctree::\n"
+                    "   :maxdepth: {}\n\n"
+                    "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, (self.full_root_file_path + "__FAKEOUT.rst").split("/")[-1])
+                )
+                generated_index.write(views)
+                # for n in self.namespaces:
+                #         generated_index.write(
+                #             ".. toctree::\n"
+                #             "   :maxdepth: {}\n\n"
+                #             "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, n.file_name)
+                #         )
+
                 # for cl in self.class_like:
                 #     generated_index.write(
                 #         ".. toctree::\n"
@@ -1196,7 +1267,6 @@ class TextRoot(object):
         '''
         self.generateAPIRootHeader()
         self.generateNodeDocuments()
-        self.generateViewHierarchies()
         self.generateAPIRootBody()
         self.generateAPIRootSummary()
 
