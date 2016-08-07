@@ -30,27 +30,27 @@ namespace external {
 }
 
 /**
- * \struct anything common.h arbitrary/common.h
+ * \struct params common.h arbitrary/common.h
  *
  * \brief A serializable parameters struct that nobody would ever actually use like this.
  */
-struct anything {
-    /// Creates a `anything` struct with `x`, `y`, and `z` initialized to ``0.0f``;
-    anything() : x(0.0f), y(0.0f), z(0.0f) {}
+struct params {
+    /// Creates a `params` struct with `x`, `y`, and `z` initialized to ``0.0f``;
+    params() : x(0.0f), y(0.0f), z(0.0f) {}
 
     /**
-     * \brief The explicit `anything` constructor.
+     * \brief The explicit `params` constructor.
      *
      * \param _x
-     * The value to set this `anything` `x` field to.
+     * The value to set this `params` `x` field to.
      *
      * \param _y
-     * The value to set this `anything` `y` field to.
+     * The value to set this `params` `y` field to.
      *
      * \param _z
-     * The value to set this `anything` `z` field to.
+     * The value to set this `params` `z` field to.
      */
-    anything(float _x, float _y, float _z) : x(_x), y(_y), z(_z) {}
+    params(float _x, float _y, float _z) : x(_x), y(_y), z(_z) {}
 
     /**
      * \union U common.h arbitrary/common.h
@@ -154,7 +154,7 @@ namespace arbitrary {
  *
  * Does absolutely nothing.
  *
- * \param anything
+ * \param params
  * Does whatever you want it to.
  */
 static void someCommonFunction(super_bool anything) {

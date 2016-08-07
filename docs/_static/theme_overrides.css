@@ -10,3 +10,58 @@ div[class^='highlight'] pre {
     white-space: pre;
     white-space: pre-wrap;
 }
+
+
+.hierarchyListing {
+    -moz-user-select:none;
+    position:relative;
+    background-color: gray;
+}
+
+.hierarchyListing ul, ol {
+    list-style-type: none ! important;
+}
+
+.hierarchyListing ul li {
+    list-style-type: none ! important;
+}
+
+.hierarchyListing .collapsibleList {
+    list-style: none;
+    list-style-type: none;
+}
+
+/*.hierarchyListing .collapsibleList li {
+    list-style: none;
+    list-style-type: none;
+}*/
+
+
+.hierarchyListing ul li{
+  list-style-image:url('button.png') ! important;
+  cursor:auto;
+}
+
+.hierarchyListing li.collapsibleListOpen{
+  list-style-image:url('button-open.png') ! important;
+  cursor:pointer;
+}
+
+.hierarchyListing li.collapsibleListClosed{
+  list-style-image:url('button-closed.png') ! important;
+  cursor:pointer;
+}
+
+
+.toggle .header {
+    display: block;
+    clear: both;
+}
+
+.toggle .header:after {
+    content: " ▼";
+}
+
+.toggle .header.open:after {
+    content: " ▲";
+}
