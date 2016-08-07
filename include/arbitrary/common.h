@@ -30,25 +30,27 @@ namespace external {
 }
 
 /**
+ * \struct anything common.h arbitrary/common.h
+ *
  * \brief A serializable parameters struct that nobody would ever actually use like this.
  */
-struct super_params {
-    /// Creates a `super_params` struct with `x`, `y`, and `z` initialized to ``0.0f``;
-    super_params() : x(0.0f), y(0.0f), z(0.0f) {}
+struct anything {
+    /// Creates a `anything` struct with `x`, `y`, and `z` initialized to ``0.0f``;
+    anything() : x(0.0f), y(0.0f), z(0.0f) {}
 
     /**
-     * \brief The explicit `super_params` constructor.
+     * \brief The explicit `anything` constructor.
      *
      * \param _x
-     * The value to set this `super_params` `x` field to.
+     * The value to set this `anything` `x` field to.
      *
      * \param _y
-     * The value to set this `super_params` `y` field to.
+     * The value to set this `anything` `y` field to.
      *
      * \param _z
-     * The value to set this `super_params` `z` field to.
+     * The value to set this `anything` `z` field to.
      */
-    super_params(float _x, float _y, float _z) : x(_x), y(_y), z(_z) {}
+    anything(float _x, float _y, float _z) : x(_x), y(_y), z(_z) {}
 
     /**
      * \union U common.h arbitrary/common.h

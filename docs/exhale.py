@@ -405,6 +405,7 @@ class Node:
         self.file_name = ""
         self.link_name = ""
         self.in_class_view = False
+        self.title = ""
 
     def __lt__(self, other):
         # allows alphabetical sorting within types
@@ -473,6 +474,10 @@ class TextRoot(object):
         self.root_file_title = root_file_title
         self.root_file_description = root_file_description
         self.root_file_summary = root_file_summary
+
+        self.class_view_file = "{}.rst".format(
+            self.full_root_file_path.replace(self.root_file_name, "class_view_hierarchy")
+        )
 
 
         ### merge to be just one dictionary, find way that works for key traversal
@@ -956,13 +961,14 @@ class TextRoot(object):
             print("**********************{}*******************".format(node.name))
 
         node.file_name = "{}/exhale_{}_{}.rst".format(self.root_directory, node.kind, node.name.replace(":", "_"))
-        node.link_name = node.name.replace(":", "_")
+        node.link_name = "{}_{}".format(TextNode.qualifyKind(node.kind).lower(), node.name.replace(":", "_"))
         try:
             with open(node.file_name, "w") as gen_file:
                 # generate a link label for every generated file
                 link_declaration = ".. _{}:\n\n".format(node.link_name)
                 # every generated file must have a header for sphinx to be happy
-                header = "{} {}\n{}\n\n".format(TextNode.qualifyKind(node.kind), node.name.split("::")[-1], EXHALE_FILE_HEADING)
+                node.title = "{} {}".format(TextNode.qualifyKind(node.kind), node.name.split("::")[-1])
+                header = "{}\n{}\n\n".format(node.title, EXHALE_FILE_HEADING)
                 # inject the appropriate doxygen directive and name of this node
                 directive = ".. {}:: {}\n".format(TextNode.kindAsBreatheDirective(node.kind), node.name)
                 # include any specific directives for this doxygen directive
@@ -1045,13 +1051,15 @@ class TextRoot(object):
             print("**********************{}*******************".format(nspace.name))
 
         nspace.file_name = "{}/exhale_{}_{}.rst".format(self.root_directory, nspace.kind, nspace.name.replace(":", "_"))
-        nspace.link_name = nspace.name.replace(":", "_")
+        # nspace.link_name = nspace.name.replace(":", "_")
+        nspace.link_name = "{}_{}".format(TextNode.qualifyKind(nspace.kind).lower(), nspace.name.replace(":", "_"))
         try:
             with open(nspace.file_name, "w") as gen_file:
                 # generate a link label for every generated file
                 link_declaration = ".. _{}:\n\n".format(nspace.link_name)
                 # every generated file must have a header for sphinx to be happy
-                header = "{} {}\n{}\n\n".format(TextNode.qualifyKind(nspace.kind), nspace.name, EXHALE_FILE_HEADING)
+                nspace.title = "{} {}".format(TextNode.qualifyKind(nspace.kind), nspace.name)
+                header = "{}\n{}\n\n".format(nspace.title, EXHALE_FILE_HEADING)
                 # generate the headings and links for the children
                 children_string = self.generateNamespaceChildrenString(nspace)
                 # write it all out
@@ -1093,34 +1101,49 @@ class TextRoot(object):
                     if child.kind == "struct" or child.kind == "class" or child.kind == "union" or child.kind == "enum":
                         relevant_children.append(child)
                 if len(relevant_children) > 0:
+                    relevant_children.sort()
                     indent = "    " * level
                     class_view = "{}\n{}- :ref:`{}`".format(class_view, indent, nspace.link_name)
                     child_indent = "    " * (level + 1)
-                    if level+1 > 2:
-                        continue
                     for rc in relevant_children:
                         class_view = "{}\n{}- :ref:`{}`".format(class_view, child_indent, rc.link_name)
                         rc.in_class_view = True
                 level += 1
 
-        # Now add everything that was defined at the top level
-        class_like = "{}\n- Top-level:".format(class_view)
+        #
+        # Add everything that was not nested in a namespace.
+        #
+        # class-like objects (structs and classes)
         missing_class_like = []
         for cl in self.class_like:
             if not cl.in_class_view:
                 missing_class_like.append(cl)
-                cl.in_class_view = True
         for missing_cl in missing_class_like:
-            # self.generateSingleNodeRST(missing_cl)
-            class_view = "{}\n    - :ref:`{}`".format(class_view, missing_cl.link_name)
+            class_view = "{}\n- :ref:`{}`".format(class_view, missing_cl.link_name)
             missing_cl.in_class_view = True
+        # enums
+        missing_enums = []
+        for e in self.enums:
+            if not e.in_class_view:
+                missing_enums.append(e)
+        for missing_e in missing_enums:
+            class_view = "{}\n- :ref:`{}`".format(class_view, missing_e.link_name)
+            missing_e.in_class_view = True
+        # unions
+        missing_unions = []
+        for u in self.unions:
+            if not u.in_class_view:
+                missing_unions.append(u)
+        for missing_u in missing_unions:
+            class_view = "{}\n- :ref:`{}`".format(class_view, missing_u.link_name)
+            missing_u.in_class_view = True
 
-        return class_view
-
+        with open(self.class_view_file, "w") as cvf:
+            cvf.write("{}\n\n".format(class_view))
 
     def generateViewHierarchies(self):
-        class_view = self.generateClassView()
-        return "{}\n\n".format(class_view)
+        self.generateClassView()
+        # return "{}\n\n".format(class_view)
 
     def generateAPIRootHeader(self):
         try:
@@ -1139,61 +1162,15 @@ class TextRoot(object):
 
     def generateAPIRootBody(self):
         try:
-            with open(self.full_root_file_path + "__FAKEOUT.rst", "w") as fakeout:
-                fakeout.write(".. _FAKEOUT:\n\n")
-                fakeout.write("FAKEOUT\n{}\n".format(EXHALE_FILE_HEADING))
-                for n in self.namespaces:
-                        fakeout.write(
-                            ".. toctree::\n"
-                            "   :maxdepth: {}\n\n"
-                            "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, n.file_name)
-                        )
-
-                for cl in self.class_like:
-                    fakeout.write(
-                        ".. toctree::\n"
-                        "   :maxdepth: {}\n\n"
-                        "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, cl.file_name)
-                    )
-                for e in self.enums:
-                    fakeout.write(
-                        ".. toctree::\n"
-                        "   :maxdepth: {}\n\n"
-                        "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, e.file_name)
-                    )
-                for f in self.functions:
-                    fakeout.write(
-                        ".. toctree::\n"
-                        "   :maxdepth: {}\n\n"
-                        "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, f.file_name)
-                    )
-
-                for t in self.typedefs:
-                    fakeout.write(
-                        ".. toctree::\n"
-                        "   :maxdepth: {}\n\n"
-                        "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, t.file_name)
-                    )
-                for u in self.unions:
-                    fakeout.write(
-                        ".. toctree::\n"
-                        "   :maxdepth: {}\n\n"
-                        "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, u.file_name)
-                    )
-                for v in self.variables:
-                    fakeout.write(
-                        ".. toctree::\n"
-                        "   :maxdepth: {}\n\n"
-                        "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, v.file_name)
-                    )
-            views = self.generateViewHierarchies()
+            self.generateViewHierarchies()
             with open(self.full_root_file_path, "a") as generated_index:
                 generated_index.write(
-                    ".. toctree::\n"
-                    "   :maxdepth: {}\n\n"
-                    "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, (self.full_root_file_path + "__FAKEOUT.rst").split("/")[-1])
+                    ".. include:: {}\n".format(self.class_view_file.split("/")[-1])
+                    # "   :maxdepth: {}\n\n"
+                    # "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, self.class_view_file.split("/")[-1])
                 )
-                generated_index.write(views)
+
+                # generated_index.write(views)
                 # for n in self.namespaces:
                 #         generated_index.write(
                 #             ".. toctree::\n"
