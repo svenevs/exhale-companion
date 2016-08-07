@@ -1086,60 +1086,72 @@ class TextRoot(object):
             self.generateSingleNamespace(n)
 
     def generateClassView(self):
-        # class_view = "Class Hierarchy\n{}\n".format(EXHALE_SECTION_HEADING)
-        # for n in self.namespaces:
-        #     nested_namespaces = []
-        #     for child in n.children:
-        #         child.findNestedNamespaces(nested_namespaces)
+        class_view = "Class Hierarchy\n{}\n".format(EXHALE_SECTION_HEADING)
+        top_level = []
+        # t_idx = 0
+        for n in self.namespaces:
+            nested_namespaces = []
+            for child in n.children:
+                child.findNestedNamespaces(nested_namespaces)
 
-        #     level = 0
-        #     nested_namespaces.insert(0, n)
-        #     for nspace in sorted(nested_namespaces):
-        #         # determine if this namespace has any relevant children to list
-        #         relevant_children = []
-        #         for child in nspace.children:
-        #             if child.kind == "struct" or child.kind == "class" or child.kind == "union" or child.kind == "enum":
-        #                 relevant_children.append(child)
-        #         if len(relevant_children) > 0:
-        #             relevant_children.sort()
-        #             indent = "    " * level
-        #             class_view = "{}\n{}- :ref:`{}`".format(class_view, indent, nspace.link_name)
-        #             child_indent = "    " * (level + 1)
-        #             for rc in relevant_children:
-        #                 class_view = "{}\n{}- :ref:`{}`".format(class_view, child_indent, rc.link_name)
-        #                 rc.in_class_view = True
-        #         level += 1
+            level = 0
+            nested_namespaces.insert(0, n)
+            for nspace in sorted(nested_namespaces):
+                # determine if this namespace has any relevant children to list
+                relevant_children = []
+                for child in nspace.children:
+                    if child.kind == "struct" or child.kind == "class" or child.kind == "union" or child.kind == "enum":
+                        relevant_children.append(child)
+                if len(relevant_children) > 0:
+                    relevant_children.sort()
+                    # indent = "    " * level
+                    # class_view = "{}\n{}- :ref:`{}`".format(class_view, indent, nspace.link_name)
+                    top_level.append((level, True, nspace, relevant_children))
+                    # t_idx += 1
+                    # child_indent = "    " * (level + 1)
+                    # for rc in relevant_children:
+                    #     class_view = "{}\n{}- :ref:`{}`".format(class_view, child_indent, rc.link_name)
+                    #     rc.in_class_view = True
+                level += 1
 
-        # #
-        # # Add everything that was not nested in a namespace.
-        # #
-        # # class-like objects (structs and classes)
-        # missing_class_like = []
-        # for cl in self.class_like:
-        #     if not cl.in_class_view:
-        #         missing_class_like.append(cl)
-        # for missing_cl in missing_class_like:
-        #     class_view = "{}\n- :ref:`{}`".format(class_view, missing_cl.link_name)
-        #     missing_cl.in_class_view = True
-        # # enums
-        # missing_enums = []
-        # for e in self.enums:
-        #     if not e.in_class_view:
-        #         missing_enums.append(e)
-        # for missing_e in missing_enums:
-        #     class_view = "{}\n- :ref:`{}`".format(class_view, missing_e.link_name)
-        #     missing_e.in_class_view = True
-        # # unions
-        # missing_unions = []
-        # for u in self.unions:
-        #     if not u.in_class_view:
-        #         missing_unions.append(u)
-        # for missing_u in missing_unions:
-        #     class_view = "{}\n- :ref:`{}`".format(class_view, missing_u.link_name)
-        #     missing_u.in_class_view = True
+        for level, has_nspace, nspace, rc in top_level:
+            if has_nspace:
+                print("{}- {}".format("    "*level, nspace.name))
+                for child in rc:
+                    print("{}- {}".format("    "*(level+1), child.name))
 
-        # with open(self.class_view_file, "w") as cvf:
-        #     cvf.write("{}\n\n".format(class_view))
+        sys.exit(0)
+
+        #
+        # Add everything that was not nested in a namespace.
+        #
+        # class-like objects (structs and classes)
+        missing_class_like = []
+        for cl in self.class_like:
+            if not cl.in_class_view:
+                missing_class_like.append(cl)
+        for missing_cl in missing_class_like:
+            class_view = "{}\n- :ref:`{}`".format(class_view, missing_cl.link_name)
+            missing_cl.in_class_view = True
+        # enums
+        missing_enums = []
+        for e in self.enums:
+            if not e.in_class_view:
+                missing_enums.append(e)
+        for missing_e in missing_enums:
+            class_view = "{}\n- :ref:`{}`".format(class_view, missing_e.link_name)
+            missing_e.in_class_view = True
+        # unions
+        missing_unions = []
+        for u in self.unions:
+            if not u.in_class_view:
+                missing_unions.append(u)
+        for missing_u in missing_unions:
+            class_view = "{}\n- :ref:`{}`".format(class_view, missing_u.link_name)
+            missing_u.in_class_view = True
+
+        with open(self.class_view_file, "w") as cvf:
+            cvf.write("{}\n\n".format(class_view))
 
         with open(self.class_view_file, "w") as cvf:
             cvf.write(
