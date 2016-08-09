@@ -8,6 +8,7 @@ import sys
 import re
 import os
 import cStringIO
+import textwrap
 
 EXHALE_API_TOCTREE_MAX_DEPTH = 5
 '''Larger than 5 will likely produce errors with a LaTeX build, but the user can
@@ -456,6 +457,67 @@ class Node:
 
     def typeSort(self):
         self.children.sort()
+
+    def inClassView(self):
+        if self.kind == "namespace":
+            for c in self.children:
+                if c.inClassView():
+                    return True
+        else:
+            self.in_class_view = True
+            return self.kind == "struct" or self.kind == "class" or \
+                   self.kind == "enum"   or self.kind == "union"
+
+    def toClassView(self, level, stream, treeView, lastChild=False):
+        if self.inClassView():
+            if not treeView:
+                stream.write("{}- :ref:`{}`\n".format('    ' * level, self.link_name))
+            else:
+                indent = '  ' * (level * 2)
+                if lastChild:
+                    opening_li = '<li class="lastChild">'
+                else:
+                    opening_li = '<li>'
+                if self.kind == "namespace":
+                    next_indent = '  {}'.format(indent)
+                    stream.write('{}{}\n{}{}\n{}<ul>\n'.format(indent, opening_li, next_indent, self.name, next_indent))
+                else:
+                    stream.write('{}{}{}</li>\n'.format(indent, opening_li, self.name))
+
+            # include the relevant children (class like or nested namespaces)
+            if self.kind == "namespace":
+                # pre-process and find everything that is relevant
+                kids    = []
+                nspaces = []
+                for c in self.children:
+                    if c.inClassView():
+                        if c.kind == "namespace":
+                            nspaces.append(c)
+                        else:
+                            kids.append(c)
+
+                # always put nested namespaces last; parent dictates to the child if
+                # they are the last child being printed
+                kids.sort()
+                num_kids = len(kids)
+
+                nspaces.sort()
+                num_nspaces = len(nspaces)
+
+                last_child_index = num_kids + num_nspaces - 1
+                child_idx = 0
+
+                for k in kids:
+                    k.toClassView(level + 1, stream, treeView, child_idx == last_child_index)
+                    child_idx += 1
+
+                for n in nspaces:
+                    n.toClassView(level + 1, stream, treeView, child_idx == last_child_index)
+                    child_idx += 1
+
+                # now that all of the children haven been written, close the tags
+                if treeView:
+                    stream.write("  {}</ul>\n{}</li>\n".format(indent, indent))
 
 
 class TextRoot(object):
@@ -1094,296 +1156,232 @@ class TextRoot(object):
             self.generateSingleNamespace(n)
 
     def generateClassView(self):
-        class_view = "Class Hierarchy\n{}\n".format(EXHALE_SECTION_HEADING)
-        level_tracking = {}
-        in_order = []
-        namespace_was_used = []
+        treeView = True
+        class_view_stream = cStringIO.StringIO()
+
         for n in self.namespaces:
-            nested_namespaces = []
-            for child in n.children:
-                child.findNestedNamespaces(nested_namespaces)
-
-            nested_namespaces.insert(0, n)
-            import ipdb
-            ipdb.set_trace()
-
-            print('asdfasdfasdf')
-            continue
-
-
-            for nspace in sorted(nested_namespaces):
-                # determine if this namespace has any relevant children to list
-                relevant_children = []
-                for child in nspace.children:
-                    if child.kind == "struct" or child.kind == "class" or child.kind == "union" or child.kind == "enum":
-                        relevant_children.append(child)
-                if len(relevant_children) > 0:
-                    relevant_children.sort()
-                    level = len(nspace.name.split("::"))-1
-                    if level not in level_tracking:
-                        level_tracking[level] = 1
-                    else:
-                        level_tracking[level] +=1
-
-                    in_order.append((level, nspace))
-
-                    indent = "    " * level
-                    class_view = "{}\n{}- :ref:`{}`".format(class_view, indent, nspace.link_name)
-                    child_indent = "    " * (level + 1)
-                    child_level = level + 1
-                    for rc in relevant_children:
-                        if child_level not in level_tracking:
-                            level_tracking[child_level] = 1
-                        else:
-                            level_tracking[child_level] += 1
-
-                        in_order.append((child_level, rc))
-
-                        class_view = "{}\n{}- :ref:`{}`".format(class_view, child_indent, rc.link_name)
-                        rc.in_class_view = True
+            n.toClassView(0, class_view_stream, treeView)
 
         #
         # Add everything that was not nested in a namespace.
         #
+        missing = []
         # class-like objects (structs and classes)
-        if 0 not in level_tracking:
-            level_tracking[0] = 0
-        missing_class_like = []
-        for cl in self.class_like:
+        for cl in sorted(self.class_like):
             if not cl.in_class_view:
-                missing_class_like.append(cl)
-        for missing_cl in missing_class_like:
-            class_view = "{}\n- :ref:`{}`".format(class_view, missing_cl.link_name)
-            missing_cl.in_class_view = True
-            level_tracking[0] += 1
-            in_order.append((0, missing_cl))
-
+                missing.append(cl)
         # enums
-        missing_enums = []
-        for e in self.enums:
+        for e in sorted(self.enums):
             if not e.in_class_view:
-                missing_enums.append(e)
-        for missing_e in missing_enums:
-            class_view = "{}\n- :ref:`{}`".format(class_view, missing_e.link_name)
-            missing_e.in_class_view = True
-            level_tracking[0] += 1
-            in_order.append((0, missing_e))
+                missing.append(e)
         # unions
-        missing_unions = []
-        for u in self.unions:
+        for u in sorted(self.unions):
             if not u.in_class_view:
-                missing_unions.append(u)
-        for missing_u in missing_unions:
-            class_view = "{}\n- :ref:`{}`".format(class_view, missing_u.link_name)
-            missing_u.in_class_view = True
-            level_tracking[0] += 1
-            in_order.append((0, missing_u))
+                missing.append(u)
 
-        print(class_view)
-        print("+"*44)
-        for l in level_tracking:
-            print("{} : {}".format(l, level_tracking[l]))
-        print("+"*44)
+        idx = 0
+        last_missing_child = len(missing) - 1
+        for m in missing:
+            m.toClassView(0, class_view_stream, treeView, idx == last_missing_child)
+            idx += 1
 
-        level_processing = {}
-        num_node_indices = len(in_order) - 1
-        prev_nspace_level = 0
-        first = True
-        indent = ''
-        # print('<ul class=\"treeView\">\n'
-        #       '  <li>\n'
-        #       '  <ul class="collapsibleList">')
-        namespace_closings = []
-        nested_closing = []
-        for idx in rg(num_node_indices+1):
-            level, node = in_order[idx]
+        class_view_string = class_view_stream.getvalue()
+        class_view_stream.close()
 
-            indent = '  ' * (level*2)
+        #             groups = match.groups()
+        #             level  = int(groups[0])
+        #             rank   = int(groups[1])
 
-            if len(nested_closing) > 0:
-                if level < nested_closing[-1]:
-                    start = nested_closing.pop()
-                    while start >= level:
-                        print('{}</ul>'.format('  ' * (start*2-1)))
-                        start -= 1
+        #             # we need to scan the remaining li tags now, if we find a match
+        #             # that is a lower level then this is a last child for this tree.
+        #             # if we find one that is the same, this node is not a lastChild
+        #             last_child = False or idx == num_lines-1
+        #             idy = idx + 1
+        #             while idy < num_lines:
+        #                 next_line = class_view_lines[idy]
+        #                 next_match = regex.match(next_line)
+        #                 idy += 1
+        #                 if next_match is not None:
+        #                     next_groups = match.groups()
+        #                     next_level  = int(next_groups[0])
+        #                     next_rank   = int(next_groups[1])
+        #                     if next_level < level:
+        #                         last_child = True
+        #                         break
 
-            # bookkeeping
-            if level not in level_processing:
-                level_processing[level] = 1
-            else:
-                level_processing[level] += 1
-            # keep track of lastChild nodes
-            if level_processing[level] == level_tracking[level]:
-                opening_li = '<li class="lastChild">'
-                close_listing = True
-                nested_closing.append(level)
-            else:
-                opening_li = '<li>'
-                close_listing = False
 
-            if node.kind == "namespace":
-                next_indent = '  {}'.format(indent)
-                print('{}{}\n{}{}\n{}<ul>'.format(indent, opening_li, next_indent, node.name, next_indent))
-            else:
-                print('{}{}{}</li>'.format(indent, opening_li, node.name))
-
-            # if close_listing:
-            #     if node.kind == "namespace":
-            #         nested_closing.append(level)
-            #     else:
-            #         print('{}</ul>'.format('  ' * (level*2-1)))
-
-        sys.exit(0)
+        #             if last_child:
+        #                 replaced = re.sub(r'(\s*)<li_\d+_\d+>(.*)',
+        #                                   r'\1<li class="lastChild">\2',
+        #                                   line)
+        #             else:
+        #                 replaced = re.sub(r'(\s*)<li_\d+_\d+>(.*)',
+        #                                   r'\1<li>\2',
+        #                                   line)
+        #             re_stream.write("{}{}\n".format(raw_indent, replaced))
+        #         else:
+        #             re_stream.write("{}{}\n".format(raw_indent, line))
+        if treeView:
+            indented = re.sub(r'(.+)', r'        \1', class_view_string)
+            class_view_string = \
+                '.. raw:: html\n\n' \
+                '   <ul class="treeView">\n' \
+                '     <li>\n' \
+                '       <ul class="collapsibleList">\n' \
+                '{}' \
+                '       </ul><!-- collapsibleList -->\n' \
+                '     </li><!-- only tree view element -->\n' \
+                '   </ul><!-- treeView -->\n'.format(indented)
 
         with open(self.class_view_file, "w") as cvf:
-            cvf.write("{}\n\n".format(class_view))
+            cvf.write("{}\n\n".format(class_view_string))
 
-        with open(self.class_view_file, "w") as cvf:
-            cvf.write(
-                "Class Hierarchy\n"
-                "----------------------------------------------------------------------------------------\n\n"
-                ".. raw:: html\n\n"
-                # "    <ul class=\"collapsibleList\">\n"
-                # "        <li>\n"
-                # "            Parent item\n"
-                # "            <ul>\n"
-                # "                <li>Child item</li>\n"
-                # "                <li>Child item</li>\n"
-                # "            </ul>\n"
-                # "        </li>\n"
-                # "        <li>\n"
-                # "            Parent item\n"
-                # "            <ul>\n"
-                # "                <li>Child item</li>\n"
-                # "                <li>Child item</li>\n"
-                # "            </ul>\n"
-                # "        </li>\n"
-                # "    </ul>\n"
-                # "   <div class=\"tree\">\n"
-                # "   <ul class=\"collapsibleList\">\n"
-                # "       <li>\n"
-                # "           <a href=\"#\">Parent</a>\n"
-                # "           <ul>\n"
-                # "               <li>\n"
-                # "                   <a href=\"#\">Child</a>\n"
-                # "                   <ul>\n"
-                # "                       <li>\n"
-                # "                           <a href=\"#\">Grand Child</a>\n"
-                # "                       </li>\n"
-                # "                   </ul>\n"
-                # "               </li>\n"
-                # "               <li>\n"
-                # "                   <a href=\"#\">Child</a>\n"
-                # "                   <ul>\n"
-                # "                       <li><a href=\"#\">Grand Child</a></li>\n"
-                # "                       <li>\n"
-                # "                           <a href=\"#\">Grand Child</a>\n"
-                # "                           <ul>\n"
-                # "                               <li>\n"
-                # "                                   <a href=\"#\">Great Grand Child</a>\n"
-                # "                               </li>\n"
-                # "                               <li>\n"
-                # "                                   <a href=\"#\">Great Grand Child</a>\n"
-                # "                               </li>\n"
-                # "                               <li>\n"
-                # "                                   <a href=\"#\">Great Grand Child</a>\n"
-                # "                               </li>\n"
-                # "                           </ul>\n"
-                # "                       </li>\n"
-                # "                       <li><a href=\"#\">Grand Child</a></li>\n"
-                # "                   </ul>\n"
-                # "               </li>\n"
-                # "           </ul>\n"
-                # "       </li>\n"
-                # "   </ul>\n"
-                # "   </div>\n"
-
-
-                # ".. container:: toggle\n\n"
-                # "    .. container:: header\n\n"
-                # "        **Show/Hide Code**\n\n"
-                # "    .. code-block:: xml\n"
-                # "       :linenos:\n\n"
-                # "       from plone import api\n"
-                # "       ...\n\n"
+        # with open(self.class_view_file, "w") as cvf:
+        #     cvf.write(
+        #         "Class Hierarchy\n"
+        #         "----------------------------------------------------------------------------------------\n\n"
+        #         ".. raw:: html\n\n"
+        #         # "    <ul class=\"collapsibleList\">\n"
+        #         # "        <li>\n"
+        #         # "            Parent item\n"
+        #         # "            <ul>\n"
+        #         # "                <li>Child item</li>\n"
+        #         # "                <li>Child item</li>\n"
+        #         # "            </ul>\n"
+        #         # "        </li>\n"
+        #         # "        <li>\n"
+        #         # "            Parent item\n"
+        #         # "            <ul>\n"
+        #         # "                <li>Child item</li>\n"
+        #         # "                <li>Child item</li>\n"
+        #         # "            </ul>\n"
+        #         # "        </li>\n"
+        #         # "    </ul>\n"
+        #         # "   <div class=\"tree\">\n"
+        #         # "   <ul class=\"collapsibleList\">\n"
+        #         # "       <li>\n"
+        #         # "           <a href=\"#\">Parent</a>\n"
+        #         # "           <ul>\n"
+        #         # "               <li>\n"
+        #         # "                   <a href=\"#\">Child</a>\n"
+        #         # "                   <ul>\n"
+        #         # "                       <li>\n"
+        #         # "                           <a href=\"#\">Grand Child</a>\n"
+        #         # "                       </li>\n"
+        #         # "                   </ul>\n"
+        #         # "               </li>\n"
+        #         # "               <li>\n"
+        #         # "                   <a href=\"#\">Child</a>\n"
+        #         # "                   <ul>\n"
+        #         # "                       <li><a href=\"#\">Grand Child</a></li>\n"
+        #         # "                       <li>\n"
+        #         # "                           <a href=\"#\">Grand Child</a>\n"
+        #         # "                           <ul>\n"
+        #         # "                               <li>\n"
+        #         # "                                   <a href=\"#\">Great Grand Child</a>\n"
+        #         # "                               </li>\n"
+        #         # "                               <li>\n"
+        #         # "                                   <a href=\"#\">Great Grand Child</a>\n"
+        #         # "                               </li>\n"
+        #         # "                               <li>\n"
+        #         # "                                   <a href=\"#\">Great Grand Child</a>\n"
+        #         # "                               </li>\n"
+        #         # "                           </ul>\n"
+        #         # "                       </li>\n"
+        #         # "                       <li><a href=\"#\">Grand Child</a></li>\n"
+        #         # "                   </ul>\n"
+        #         # "               </li>\n"
+        #         # "           </ul>\n"
+        #         # "       </li>\n"
+        #         # "   </ul>\n"
+        #         # "   </div>\n"
 
 
-                "   <div class=\"hierarchyListing\">\n"
-                "   <ul class=\"treeView\">\n"
-                "     <li>\n"
-                "       Collapsible lists\n"
-                "       <ul class=\"collapsibleList\">\n"
-                "         <li>\n"
-                "           Actions\n"
-                "           <ul>\n"
-                "             <li>\n"
-                "               Creation\n"
-                "               <ul>\n"
-                "                 <li>apply()</li>\n"
-                "                 <li class=\"lastChild\">applyTo(node)</li>\n"
-                "               </ul>\n"
-                "             </li>\n"
-                "             <li class=\"lastChild\">\n"
-                "               Toggling\n"
-                "               <ul>\n"
-                "                 <li>Expanding/opening</li>\n"
-                "                 <li class=\"lastChild\">Collapsing/closing</li>\n"
-                "               </ul>\n"
-                "             </li>\n"
-                "           </ul>\n"
-                "         </li>\n"
-                "         <li class=\"lastChild\">\n"
-                "           Uses\n"
-                "           <ul>\n"
-                "             <li>Directory listings</li>\n"
-                "             <li>Tree views</li>\n"
-                "             <li class=\"lastChild\">Outline views</li>\n"
-                "           </ul>\n"
-                "         </li>\n"
-                "       </ul>\n"
-                "     </li>\n"
-                "   </ul>\n"
-                "   </div>\n"
+        #         # ".. container:: toggle\n\n"
+        #         # "    .. container:: header\n\n"
+        #         # "        **Show/Hide Code**\n\n"
+        #         # "    .. code-block:: xml\n"
+        #         # "       :linenos:\n\n"
+        #         # "       from plone import api\n"
+        #         # "       ...\n\n"
 
 
-                "   <div class=\"hierarchyListing\">\n"
-                "   <ul class=\"treeView\">\n"
-                "   <li>"
-                "   <ul class=\"collapsibleList\">\n"
-                "       <li>\n"
-                "           :ref:`namespace_arbitrary`\n"
-                "           <ul>\n"
-                "               <li>:ref:`struct_arbitrary__arbitrary_struct`</li>\n"
-                "               <li>:ref:`struct_arbitrary__zed_struct`</li>\n"
-                "               <li>:ref:`class_arbitrary__BaseClass`</li>\n"
-                "               <li>:ref:`class_arbitrary__DerivedClass`</li>\n"
-                "               <li>:ref:`enum_arbitrary__CAMERA_STATES`</li>\n"
-                "               <li>:ref:`union_arbitrary__NamespacedUnion`</li>\n"
-                "               <li class=\"lastChild\">\n"
-                "                   :ref:`namespace_arbitrary__nested`\n"
-                "                   <ul>\n"
-                "                       <li>:ref:`struct_arbitrary__nested__int2`</li>\n"
-                "                       <li>:ref:`union_arbitrary__nested__NestedNamespacedUnion`</li>\n"
-                "                       <li class=\"lastChild\">\n"
-                "                           :ref:`namespace_arbitrary__nested__dual_nested`\n"
-                "                           <ul>\n"
-                "                               <li class=\"lastChild\">:ref:`struct_arbitrary__nested__dual_nested__int3`</li>\n"
-                "                           </ul>\n"
-                "                       </li>\n"
-                "                   </ul>\n"
-                "               </li>\n"
-                "            </ul>\n"
-                "       </li>\n"
-                "       <li>:ref:`struct_params`</li>\n"
-                "       <li>:ref:`class_SomeOuterClass`</li>\n"
-                "       <li>:ref:`enum_UnscopedEnum`</li>\n"
-                "       <li>:ref:`union_SupremeUnion`</li>\n"
-                "   <ul>\n"
-                "       </li>\n"
-                "   </ul>\n"
-                "   </div>\n"
-                "MUAHAHAHA\n"
-            )
+        #         "   <div class=\"hierarchyListing\">\n"
+        #         "   <ul class=\"treeView\">\n"
+        #         "     <li>\n"
+        #         "       Collapsible lists\n"
+        #         "       <ul class=\"collapsibleList\">\n"
+        #         "         <li>\n"
+        #         "           Actions\n"
+        #         "           <ul>\n"
+        #         "             <li>\n"
+        #         "               Creation\n"
+        #         "               <ul>\n"
+        #         "                 <li>apply()</li>\n"
+        #         "                 <li class=\"lastChild\">applyTo(node)</li>\n"
+        #         "               </ul>\n"
+        #         "             </li>\n"
+        #         "             <li class=\"lastChild\">\n"
+        #         "               Toggling\n"
+        #         "               <ul>\n"
+        #         "                 <li>Expanding/opening</li>\n"
+        #         "                 <li class=\"lastChild\">Collapsing/closing</li>\n"
+        #         "               </ul>\n"
+        #         "             </li>\n"
+        #         "           </ul>\n"
+        #         "         </li>\n"
+        #         "         <li class=\"lastChild\">\n"
+        #         "           Uses\n"
+        #         "           <ul>\n"
+        #         "             <li>Directory listings</li>\n"
+        #         "             <li>Tree views</li>\n"
+        #         "             <li class=\"lastChild\">Outline views</li>\n"
+        #         "           </ul>\n"
+        #         "         </li>\n"
+        #         "       </ul>\n"
+        #         "     </li>\n"
+        #         "   </ul>\n"
+        #         "   </div>\n"
+
+
+        #         "   <div class=\"hierarchyListing\">\n"
+        #         "   <ul class=\"treeView\">\n"
+        #         "   <li>"
+        #         "   <ul class=\"collapsibleList\">\n"
+        #         "       <li>\n"
+        #         "           :ref:`namespace_arbitrary`\n"
+        #         "           <ul>\n"
+        #         "               <li>:ref:`struct_arbitrary__arbitrary_struct`</li>\n"
+        #         "               <li>:ref:`struct_arbitrary__zed_struct`</li>\n"
+        #         "               <li>:ref:`class_arbitrary__BaseClass`</li>\n"
+        #         "               <li>:ref:`class_arbitrary__DerivedClass`</li>\n"
+        #         "               <li>:ref:`enum_arbitrary__CAMERA_STATES`</li>\n"
+        #         "               <li>:ref:`union_arbitrary__NamespacedUnion`</li>\n"
+        #         "               <li class=\"lastChild\">\n"
+        #         "                   :ref:`namespace_arbitrary__nested`\n"
+        #         "                   <ul>\n"
+        #         "                       <li>:ref:`struct_arbitrary__nested__int2`</li>\n"
+        #         "                       <li>:ref:`union_arbitrary__nested__NestedNamespacedUnion`</li>\n"
+        #         "                       <li class=\"lastChild\">\n"
+        #         "                           :ref:`namespace_arbitrary__nested__dual_nested`\n"
+        #         "                           <ul>\n"
+        #         "                               <li class=\"lastChild\">:ref:`struct_arbitrary__nested__dual_nested__int3`</li>\n"
+        #         "                           </ul>\n"
+        #         "                       </li>\n"
+        #         "                   </ul>\n"
+        #         "               </li>\n"
+        #         "            </ul>\n"
+        #         "       </li>\n"
+        #         "       <li>:ref:`struct_params`</li>\n"
+        #         "       <li>:ref:`class_SomeOuterClass`</li>\n"
+        #         "       <li>:ref:`enum_UnscopedEnum`</li>\n"
+        #         "       <li>:ref:`union_SupremeUnion`</li>\n"
+        #         "   <ul>\n"
+        #         "       </li>\n"
+        #         "   </ul>\n"
+        #         "   </div>\n"
+        #         "MUAHAHAHA\n"
+        #     )
 
     def generateViewHierarchies(self):
         self.generateClassView()
