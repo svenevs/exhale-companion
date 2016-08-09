@@ -1104,6 +1104,13 @@ class TextRoot(object):
                 child.findNestedNamespaces(nested_namespaces)
 
             nested_namespaces.insert(0, n)
+            import ipdb
+            ipdb.set_trace()
+
+            print('asdfasdfasdf')
+            continue
+
+
             for nspace in sorted(nested_namespaces):
                 # determine if this namespace has any relevant children to list
                 relevant_children = []
@@ -1117,42 +1124,6 @@ class TextRoot(object):
                         level_tracking[level] = 1
                     else:
                         level_tracking[level] +=1
-
-                    namespace_was_used.append(nspace.name)
-                    # multiple nested namespace need special treatment
-                    if level > 0:
-                        # check to see that the parent namespaces are already included
-                        # if not, we need to add all of its parent namespaces not
-                        # already included
-                        parts = nspace.name.split("::")
-                        top_level_parent_name = parts[0]
-                        special_nested_namespaces = []
-                        top_level_parent = None
-                        for p_nspace in self.namespaces:
-                            if p_nspace.name == top_level_parent_name:
-                                top_level_parent = p_nspace
-                                for child in p_nspace.children:
-                                    child.findNestedNamespaces(special_nested_namespaces)
-                                break
-
-                        special_nested_namespaces.insert(0, top_level_parent)
-                        parent_level = 0
-                        for idx in rg(len(parts)-1):
-                            if idx == 0:
-                                parent_name = parts[idx]
-                            else:
-                                parent_name = "{}::{}".format(parent_name, parts[idx])
-
-                            if parent_name not in namespace_was_used:
-                                for potential_parent in special_nested_namespaces:
-                                    if potential_parent.name == parent_name:
-                                        in_order.append((parent_level, potential_parent))
-                                        if parent_level not in level_tracking:
-                                            level_tracking[parent_level] = 1
-                                        else:
-                                            level_tracking[parent_level] += 1
-                                        break
-                            parent_level += 1
 
                     in_order.append((level, nspace))
 
