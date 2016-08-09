@@ -129,6 +129,32 @@ namespace arbitrary {
 
         /// After ref discovery processing verification.
         typedef void death_star;
+
+        /**
+         * \class NestingSecondLastChild common.h arbitrary/common.h
+         *
+         * \brief Verifying li tags and closure.
+         */
+        class NestingSecondLastChild {
+            /// Does nothing.
+            NestingSecondLastChild() {}
+
+            /// Does even more nothing.
+            ~NestingSecondLastChild() {}
+        };
+
+        /**
+         * \class NestingLastChild common.h arbitrary/common.h
+         *
+         * \brief Verifying li tags and closure.
+         */
+        class NestingLastChild {
+            /// Does nothing.
+            NestingLastChild() {}
+
+            /// Does even more nothing.
+            ~NestingLastChild() {}
+        };
     }
 
     /// At a first glance, it doesn't seem arbitrary.
@@ -147,6 +173,42 @@ namespace arbitrary {
         /// Mehehem
         arbitrary_struct(int m) : meh(m) {}
     };
+}
+
+namespace first {
+    namespace second {
+        namespace third {
+            /**
+             * \struct only_namespace_testing common.h arbitrary/common.h
+             *
+             * \brief This struct needs to appear in the class hierarchy.
+             */
+            struct only_namespace_testing {
+                /// The only constructor.
+                only_namespace_testing(double _d) : d(_d) {}
+
+                /// This is a member double.
+                double d;
+            };
+
+            namespace fourth {
+                namespace fifth {
+                    /**
+                     * \struct deeper_namespace_testing common.h arbitrary/common.h
+                     *
+                     * \brief This struct needs to appear in the class hierarchy.
+                     */
+                    struct deeper_namespace_testing {
+                        /// The only constructor.
+                        deeper_namespace_testing(double _d) : d(_d) {}
+
+                        /// This is a member double.
+                        double d;
+                    };
+                }
+            }
+        }
+    }
 }
 
 /**

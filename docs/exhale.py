@@ -7,6 +7,7 @@ from breathe.parser.index import parse as breathe_parse
 import sys
 import re
 import os
+import cStringIO
 
 EXHALE_API_TOCTREE_MAX_DEPTH = 5
 '''Larger than 5 will likely produce errors with a LaTeX build, but the user can
@@ -17,6 +18,13 @@ EXHALE_API_DOXY_OUTPUT_DIR = ""
 EXHALE_FILE_HEADING = "=" * 88
 
 EXHALE_SECTION_HEADING = "-" * 88
+
+# breathe currently doesn't work on python3, and may never, but if it does I do not
+# want to use range in python 2
+if sys.version[0] == 2:
+    rg = lambda x: xrange(x)
+else:
+    rg = lambda x: range(x)
 
 def generate(root_generated_directory, root_generated_file, root_generated_title,
                        root_after_title_description, root_after_body_summary, doxygen_xml_index_path,
@@ -442,7 +450,7 @@ class Node:
                 print("{}- included by: [{}]".format("  "*(level+1), name))
             for n in self.namespaces_used:
                 n.toConsole(level+1, print_children=False)
-        if print_children:
+        if print_children and self.kind != "class" and self.kind != "struct" and self.kind != "union":
             for c in self.children:
                 c.toConsole(level+1)
 
@@ -1087,14 +1095,14 @@ class TextRoot(object):
 
     def generateClassView(self):
         class_view = "Class Hierarchy\n{}\n".format(EXHALE_SECTION_HEADING)
-        top_level = []
-        # t_idx = 0
+        level_tracking = {}
+        in_order = []
+        namespace_was_used = []
         for n in self.namespaces:
             nested_namespaces = []
             for child in n.children:
                 child.findNestedNamespaces(nested_namespaces)
 
-            level = 0
             nested_namespaces.insert(0, n)
             for nspace in sorted(nested_namespaces):
                 # determine if this namespace has any relevant children to list
@@ -1104,28 +1112,71 @@ class TextRoot(object):
                         relevant_children.append(child)
                 if len(relevant_children) > 0:
                     relevant_children.sort()
-                    # indent = "    " * level
-                    # class_view = "{}\n{}- :ref:`{}`".format(class_view, indent, nspace.link_name)
-                    top_level.append((level, True, nspace, relevant_children))
-                    # t_idx += 1
-                    # child_indent = "    " * (level + 1)
-                    # for rc in relevant_children:
-                    #     class_view = "{}\n{}- :ref:`{}`".format(class_view, child_indent, rc.link_name)
-                    #     rc.in_class_view = True
-                level += 1
+                    level = len(nspace.name.split("::"))-1
+                    if level not in level_tracking:
+                        level_tracking[level] = 1
+                    else:
+                        level_tracking[level] +=1
 
-        for level, has_nspace, nspace, rc in top_level:
-            if has_nspace:
-                print("{}- {}".format("    "*level, nspace.name))
-                for child in rc:
-                    print("{}- {}".format("    "*(level+1), child.name))
+                    namespace_was_used.append(nspace.name)
+                    # multiple nested namespace need special treatment
+                    if level > 0:
+                        # check to see that the parent namespaces are already included
+                        # if not, we need to add all of its parent namespaces not
+                        # already included
+                        parts = nspace.name.split("::")
+                        top_level_parent_name = parts[0]
+                        special_nested_namespaces = []
+                        top_level_parent = None
+                        for p_nspace in self.namespaces:
+                            if p_nspace.name == top_level_parent_name:
+                                top_level_parent = p_nspace
+                                for child in p_nspace.children:
+                                    child.findNestedNamespaces(special_nested_namespaces)
+                                break
 
-        sys.exit(0)
+                        special_nested_namespaces.insert(0, top_level_parent)
+                        parent_level = 0
+                        for idx in rg(len(parts)-1):
+                            if idx == 0:
+                                parent_name = parts[idx]
+                            else:
+                                parent_name = "{}::{}".format(parent_name, parts[idx])
+
+                            if parent_name not in namespace_was_used:
+                                for potential_parent in special_nested_namespaces:
+                                    if potential_parent.name == parent_name:
+                                        in_order.append((parent_level, potential_parent))
+                                        if parent_level not in level_tracking:
+                                            level_tracking[parent_level] = 1
+                                        else:
+                                            level_tracking[parent_level] += 1
+                                        break
+                            parent_level += 1
+
+                    in_order.append((level, nspace))
+
+                    indent = "    " * level
+                    class_view = "{}\n{}- :ref:`{}`".format(class_view, indent, nspace.link_name)
+                    child_indent = "    " * (level + 1)
+                    child_level = level + 1
+                    for rc in relevant_children:
+                        if child_level not in level_tracking:
+                            level_tracking[child_level] = 1
+                        else:
+                            level_tracking[child_level] += 1
+
+                        in_order.append((child_level, rc))
+
+                        class_view = "{}\n{}- :ref:`{}`".format(class_view, child_indent, rc.link_name)
+                        rc.in_class_view = True
 
         #
         # Add everything that was not nested in a namespace.
         #
         # class-like objects (structs and classes)
+        if 0 not in level_tracking:
+            level_tracking[0] = 0
         missing_class_like = []
         for cl in self.class_like:
             if not cl.in_class_view:
@@ -1133,6 +1184,9 @@ class TextRoot(object):
         for missing_cl in missing_class_like:
             class_view = "{}\n- :ref:`{}`".format(class_view, missing_cl.link_name)
             missing_cl.in_class_view = True
+            level_tracking[0] += 1
+            in_order.append((0, missing_cl))
+
         # enums
         missing_enums = []
         for e in self.enums:
@@ -1141,6 +1195,8 @@ class TextRoot(object):
         for missing_e in missing_enums:
             class_view = "{}\n- :ref:`{}`".format(class_view, missing_e.link_name)
             missing_e.in_class_view = True
+            level_tracking[0] += 1
+            in_order.append((0, missing_e))
         # unions
         missing_unions = []
         for u in self.unions:
@@ -1149,6 +1205,64 @@ class TextRoot(object):
         for missing_u in missing_unions:
             class_view = "{}\n- :ref:`{}`".format(class_view, missing_u.link_name)
             missing_u.in_class_view = True
+            level_tracking[0] += 1
+            in_order.append((0, missing_u))
+
+        print(class_view)
+        print("+"*44)
+        for l in level_tracking:
+            print("{} : {}".format(l, level_tracking[l]))
+        print("+"*44)
+
+        level_processing = {}
+        num_node_indices = len(in_order) - 1
+        prev_nspace_level = 0
+        first = True
+        indent = ''
+        # print('<ul class=\"treeView\">\n'
+        #       '  <li>\n'
+        #       '  <ul class="collapsibleList">')
+        namespace_closings = []
+        nested_closing = []
+        for idx in rg(num_node_indices+1):
+            level, node = in_order[idx]
+
+            indent = '  ' * (level*2)
+
+            if len(nested_closing) > 0:
+                if level < nested_closing[-1]:
+                    start = nested_closing.pop()
+                    while start >= level:
+                        print('{}</ul>'.format('  ' * (start*2-1)))
+                        start -= 1
+
+            # bookkeeping
+            if level not in level_processing:
+                level_processing[level] = 1
+            else:
+                level_processing[level] += 1
+            # keep track of lastChild nodes
+            if level_processing[level] == level_tracking[level]:
+                opening_li = '<li class="lastChild">'
+                close_listing = True
+                nested_closing.append(level)
+            else:
+                opening_li = '<li>'
+                close_listing = False
+
+            if node.kind == "namespace":
+                next_indent = '  {}'.format(indent)
+                print('{}{}\n{}{}\n{}<ul>'.format(indent, opening_li, next_indent, node.name, next_indent))
+            else:
+                print('{}{}{}</li>'.format(indent, opening_li, node.name))
+
+            # if close_listing:
+            #     if node.kind == "namespace":
+            #         nested_closing.append(level)
+            #     else:
+            #         print('{}</ul>'.format('  ' * (level*2-1)))
+
+        sys.exit(0)
 
         with open(self.class_view_file, "w") as cvf:
             cvf.write("{}\n\n".format(class_view))
