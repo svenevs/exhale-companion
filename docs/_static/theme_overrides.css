@@ -52,6 +52,11 @@ div[class^='highlight'] pre {
   cursor:pointer;
 }
 
+/* LOL */
+.treeView ul li a:hover {
+    background-color: gray ! important;
+}
+
 
 .toggle .header {
     display: block;

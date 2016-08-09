@@ -478,11 +478,13 @@ class Node:
                     opening_li = '<li class="lastChild">'
                 else:
                     opening_li = '<li>'
+                html_link = self.link_name.replace('__', '_').replace('_', '-')
+                html_link = '<a href="{}.html#{}">{}</a>'.format(self.file_name.split('.rst')[0], html_link, self.title)
                 if self.kind == "namespace":
                     next_indent = '  {}'.format(indent)
-                    stream.write('{}{}\n{}{}\n{}<ul>\n'.format(indent, opening_li, next_indent, self.name, next_indent))
+                    stream.write('{}{}\n{}{}\n{}<ul>\n'.format(indent, opening_li, next_indent, html_link, next_indent))
                 else:
-                    stream.write('{}{}{}</li>\n'.format(indent, opening_li, self.name))
+                    stream.write('{}{}{}</li>\n'.format(indent, opening_li, html_link))
 
             # include the relevant children (class like or nested namespaces)
             if self.kind == "namespace":
@@ -1188,39 +1190,6 @@ class TextRoot(object):
         class_view_string = class_view_stream.getvalue()
         class_view_stream.close()
 
-        #             groups = match.groups()
-        #             level  = int(groups[0])
-        #             rank   = int(groups[1])
-
-        #             # we need to scan the remaining li tags now, if we find a match
-        #             # that is a lower level then this is a last child for this tree.
-        #             # if we find one that is the same, this node is not a lastChild
-        #             last_child = False or idx == num_lines-1
-        #             idy = idx + 1
-        #             while idy < num_lines:
-        #                 next_line = class_view_lines[idy]
-        #                 next_match = regex.match(next_line)
-        #                 idy += 1
-        #                 if next_match is not None:
-        #                     next_groups = match.groups()
-        #                     next_level  = int(next_groups[0])
-        #                     next_rank   = int(next_groups[1])
-        #                     if next_level < level:
-        #                         last_child = True
-        #                         break
-
-
-        #             if last_child:
-        #                 replaced = re.sub(r'(\s*)<li_\d+_\d+>(.*)',
-        #                                   r'\1<li class="lastChild">\2',
-        #                                   line)
-        #             else:
-        #                 replaced = re.sub(r'(\s*)<li_\d+_\d+>(.*)',
-        #                                   r'\1<li>\2',
-        #                                   line)
-        #             re_stream.write("{}{}\n".format(raw_indent, replaced))
-        #         else:
-        #             re_stream.write("{}{}\n".format(raw_indent, line))
         if treeView:
             indented = re.sub(r'(.+)', r'        \1', class_view_string)
             class_view_string = \
@@ -1234,154 +1203,7 @@ class TextRoot(object):
                 '   </ul><!-- treeView -->\n'.format(indented)
 
         with open(self.class_view_file, "w") as cvf:
-            cvf.write("{}\n\n".format(class_view_string))
-
-        # with open(self.class_view_file, "w") as cvf:
-        #     cvf.write(
-        #         "Class Hierarchy\n"
-        #         "----------------------------------------------------------------------------------------\n\n"
-        #         ".. raw:: html\n\n"
-        #         # "    <ul class=\"collapsibleList\">\n"
-        #         # "        <li>\n"
-        #         # "            Parent item\n"
-        #         # "            <ul>\n"
-        #         # "                <li>Child item</li>\n"
-        #         # "                <li>Child item</li>\n"
-        #         # "            </ul>\n"
-        #         # "        </li>\n"
-        #         # "        <li>\n"
-        #         # "            Parent item\n"
-        #         # "            <ul>\n"
-        #         # "                <li>Child item</li>\n"
-        #         # "                <li>Child item</li>\n"
-        #         # "            </ul>\n"
-        #         # "        </li>\n"
-        #         # "    </ul>\n"
-        #         # "   <div class=\"tree\">\n"
-        #         # "   <ul class=\"collapsibleList\">\n"
-        #         # "       <li>\n"
-        #         # "           <a href=\"#\">Parent</a>\n"
-        #         # "           <ul>\n"
-        #         # "               <li>\n"
-        #         # "                   <a href=\"#\">Child</a>\n"
-        #         # "                   <ul>\n"
-        #         # "                       <li>\n"
-        #         # "                           <a href=\"#\">Grand Child</a>\n"
-        #         # "                       </li>\n"
-        #         # "                   </ul>\n"
-        #         # "               </li>\n"
-        #         # "               <li>\n"
-        #         # "                   <a href=\"#\">Child</a>\n"
-        #         # "                   <ul>\n"
-        #         # "                       <li><a href=\"#\">Grand Child</a></li>\n"
-        #         # "                       <li>\n"
-        #         # "                           <a href=\"#\">Grand Child</a>\n"
-        #         # "                           <ul>\n"
-        #         # "                               <li>\n"
-        #         # "                                   <a href=\"#\">Great Grand Child</a>\n"
-        #         # "                               </li>\n"
-        #         # "                               <li>\n"
-        #         # "                                   <a href=\"#\">Great Grand Child</a>\n"
-        #         # "                               </li>\n"
-        #         # "                               <li>\n"
-        #         # "                                   <a href=\"#\">Great Grand Child</a>\n"
-        #         # "                               </li>\n"
-        #         # "                           </ul>\n"
-        #         # "                       </li>\n"
-        #         # "                       <li><a href=\"#\">Grand Child</a></li>\n"
-        #         # "                   </ul>\n"
-        #         # "               </li>\n"
-        #         # "           </ul>\n"
-        #         # "       </li>\n"
-        #         # "   </ul>\n"
-        #         # "   </div>\n"
-
-
-        #         # ".. container:: toggle\n\n"
-        #         # "    .. container:: header\n\n"
-        #         # "        **Show/Hide Code**\n\n"
-        #         # "    .. code-block:: xml\n"
-        #         # "       :linenos:\n\n"
-        #         # "       from plone import api\n"
-        #         # "       ...\n\n"
-
-
-        #         "   <div class=\"hierarchyListing\">\n"
-        #         "   <ul class=\"treeView\">\n"
-        #         "     <li>\n"
-        #         "       Collapsible lists\n"
-        #         "       <ul class=\"collapsibleList\">\n"
-        #         "         <li>\n"
-        #         "           Actions\n"
-        #         "           <ul>\n"
-        #         "             <li>\n"
-        #         "               Creation\n"
-        #         "               <ul>\n"
-        #         "                 <li>apply()</li>\n"
-        #         "                 <li class=\"lastChild\">applyTo(node)</li>\n"
-        #         "               </ul>\n"
-        #         "             </li>\n"
-        #         "             <li class=\"lastChild\">\n"
-        #         "               Toggling\n"
-        #         "               <ul>\n"
-        #         "                 <li>Expanding/opening</li>\n"
-        #         "                 <li class=\"lastChild\">Collapsing/closing</li>\n"
-        #         "               </ul>\n"
-        #         "             </li>\n"
-        #         "           </ul>\n"
-        #         "         </li>\n"
-        #         "         <li class=\"lastChild\">\n"
-        #         "           Uses\n"
-        #         "           <ul>\n"
-        #         "             <li>Directory listings</li>\n"
-        #         "             <li>Tree views</li>\n"
-        #         "             <li class=\"lastChild\">Outline views</li>\n"
-        #         "           </ul>\n"
-        #         "         </li>\n"
-        #         "       </ul>\n"
-        #         "     </li>\n"
-        #         "   </ul>\n"
-        #         "   </div>\n"
-
-
-        #         "   <div class=\"hierarchyListing\">\n"
-        #         "   <ul class=\"treeView\">\n"
-        #         "   <li>"
-        #         "   <ul class=\"collapsibleList\">\n"
-        #         "       <li>\n"
-        #         "           :ref:`namespace_arbitrary`\n"
-        #         "           <ul>\n"
-        #         "               <li>:ref:`struct_arbitrary__arbitrary_struct`</li>\n"
-        #         "               <li>:ref:`struct_arbitrary__zed_struct`</li>\n"
-        #         "               <li>:ref:`class_arbitrary__BaseClass`</li>\n"
-        #         "               <li>:ref:`class_arbitrary__DerivedClass`</li>\n"
-        #         "               <li>:ref:`enum_arbitrary__CAMERA_STATES`</li>\n"
-        #         "               <li>:ref:`union_arbitrary__NamespacedUnion`</li>\n"
-        #         "               <li class=\"lastChild\">\n"
-        #         "                   :ref:`namespace_arbitrary__nested`\n"
-        #         "                   <ul>\n"
-        #         "                       <li>:ref:`struct_arbitrary__nested__int2`</li>\n"
-        #         "                       <li>:ref:`union_arbitrary__nested__NestedNamespacedUnion`</li>\n"
-        #         "                       <li class=\"lastChild\">\n"
-        #         "                           :ref:`namespace_arbitrary__nested__dual_nested`\n"
-        #         "                           <ul>\n"
-        #         "                               <li class=\"lastChild\">:ref:`struct_arbitrary__nested__dual_nested__int3`</li>\n"
-        #         "                           </ul>\n"
-        #         "                       </li>\n"
-        #         "                   </ul>\n"
-        #         "               </li>\n"
-        #         "            </ul>\n"
-        #         "       </li>\n"
-        #         "       <li>:ref:`struct_params`</li>\n"
-        #         "       <li>:ref:`class_SomeOuterClass`</li>\n"
-        #         "       <li>:ref:`enum_UnscopedEnum`</li>\n"
-        #         "       <li>:ref:`union_SupremeUnion`</li>\n"
-        #         "   <ul>\n"
-        #         "       </li>\n"
-        #         "   </ul>\n"
-        #         "   </div>\n"
-        #         "MUAHAHAHA\n"
-        #     )
+            cvf.write("Class Hierarchy\n{}\n\n{}\n\n".format(EXHALE_SECTION_HEADING, class_view_string))
 
     def generateViewHierarchies(self):
         self.generateClassView()
