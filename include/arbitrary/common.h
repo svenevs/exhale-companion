@@ -224,6 +224,4 @@ static void someCommonFunction(super_bool anything) {
         return;
 }
 
-
-
 #endif // _ARBITRARY_COMMON_H

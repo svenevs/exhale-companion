@@ -1,31 +1,35 @@
-__all__ = ['generate', 'TextRoot', 'TextNode']
-
-#
-# Note: known crash on struct params
-#
 from breathe.parser.index import parse as breathe_parse
 import sys
 import re
 import os
 import cStringIO
-import textwrap
+
+__all__ = ['generate', 'TextRoot', 'Node']
 
 EXHALE_API_TOCTREE_MAX_DEPTH = 5
-'''Larger than 5 will likely produce errors with a LaTeX build, but the user can
-   override this value by supplying a different value to `generate`.'''
+'''
+    The value used as ``:maxdepth:`` with restructured text ``.. toctree::`` directives
+    The default value is 5, as any larger will likely produce errors with a LaTeX build.
+    Change this value by specifying the proper value to the dictionary passed to the
+    `generate` function.
+'''
 
 EXHALE_API_DOXY_OUTPUT_DIR = ""
+'''
+    The path to the doxygen xml output **directory**, relative to ``conf.py`` (or
+    whichever file is calling `generate`.  This value **must** be set for `generate` to
+    be able to do anything.
+'''
 
 EXHALE_FILE_HEADING = "=" * 88
+''' The restructured text file heading separator. '''
 
 EXHALE_SECTION_HEADING = "-" * 88
+''' The restructured text section heading separator. '''
 
-# breathe currently doesn't work on python3, and may never, but if it does I do not
-# want to use range in python 2
-if sys.version[0] == 2:
-    rg = lambda x: xrange(x)
-else:
-    rg = lambda x: range(x)
+EXHALE_SUBSECTION_HEADING = '*' * 88
+''' The restructured text sub-section heading separator. '''
+
 
 def generate(root_generated_directory, root_generated_file, root_generated_title,
                        root_after_title_description, root_after_body_summary, doxygen_xml_index_path,
@@ -85,8 +89,49 @@ def exclaimError(msg, ascii_fmt="34;1m"):
     '''
     sys.stderr.write("\033[{}(!) {}\033[0m\n".format(ascii_fmt, msg))
 
-# discovered types
-#
+
+def qualifyKind(kind):
+    """
+    Qualifies the breathe ``kind`` and returns an qualifier string describing this
+    to be used for the text output.
+
+    :type:  str
+    :param: kind
+    The return value of a Breathe ``compound`` object's ``get_kind()`` method.
+
+    :rtype: str
+    :return:
+    The qualifying string that will be used to build the restructured text titles and
+    other qualifying names.  If the empty string is returned then it was not recognized.
+    """
+    qualifier = ""
+    if kind == "class":
+        qualifier = "Class"
+    elif kind == "struct":
+        qualifier = "Struct"
+    elif kind == "function":
+        qualifier = "Function"
+    elif kind == "enum":
+        qualifier = "Enum"
+    elif kind == "enumvalue":# unused
+        qualifier = "Enumvalue"
+    elif kind == "namespace":
+        qualifier = "Namespace"
+    elif kind == "define":
+        qualifier = "Define"
+    elif kind == "typedef":
+        qualifier = "Typedef"
+    elif kind == "variable":
+        qualifier = "Variable"
+    elif kind == "file":
+        qualifier = "File"
+    elif kind == "dir":
+        qualifier = "Directory"
+    elif kind == "union":
+        qualifier = "Union"
+    return qualifier
+
+# Breathe Directive     +   Breathe compound.kind
 #    doxygenclass     <-+-> "class"
 #    doxygendefine    <-+-> "define"
 #    doxygenenum      <-+-> "enum"
@@ -102,168 +147,65 @@ def exclaimError(msg, ascii_fmt="34;1m"):
 #    doxygentypedef   <-+-> "typedef"
 #    doxygenunion     <-+-> BROKEN IN BREATHE
 #    doxygenvariable  <-+-> "variable"
-#
-# Observations:
-#    - The doxygen union stuff works on doxygen html output, but
-#      breathe produces something weird.
-#    - typedef, variable, function etc are children of file sometimes
-#      not sure what to do with organizing those automatically
-#    - strangely, the "namespace" doesn't have BaseClass and DerivedClass
-#      associated with it from breathe.  quick hack would be to instead
-#      gather a list of everything, and if the name is 'namespace::thing'
-#      then create your own hierarchy
-#    - groups seem to be broken in breathe, no children appear with them
-#      and fixing that one would be a lot of work and probably still not work
-#
-#    For my purposes, I think all I want to grab is the class, struct, and function?
-#
+def kindAsBreatheDirective(kind):
+    directive = ""
+    if kind == "class":
+        directive = "doxygenclass"
+    elif kind == "struct":
+        directive = "doxygenstruct"
+    elif kind == "function":
+        directive = "doxygenfunction"
+    elif kind == "enum":
+        directive = "doxygenenum"
+    elif kind == "enumvalue":# unused
+        directive = "doxygenenumvalue"
+    elif kind == "namespace":
+        directive = "doxygennamespace"
+    elif kind == "define":
+        directive = "doxygendefine"
+    elif kind == "typedef":
+        directive = "doxygentypedef"
+    elif kind == "variable":
+        directive = "doxygenvariable"
+    elif kind == "file":
+        directive = "doxygenfile"
+    elif kind == "union":
+        directive = "doxygenunion"
+    return directive
 
-# enums show up in the namespace member list, classes, structs, and functions do not
-class TextNode(object):
-    """docstring for TextNode"""
-    @classmethod
-    def qualifyKind(cls, kind, short=False):
-        """
-        Qualifies the breathe ``kind`` and returns an qualifier string describing this
-        to be used for the text output.
 
-        :type:  class
-        :param: cls
-            The `TextNode` class.
-
-        :type:  str
-        :param: kind
-            The return value of a Breathe ``compound`` object's ``get_kind()`` method.
-
-        :rtype: str
-        :return:
-            The qualifying string that will be used to build the restructured text output
-            and sidebar in the class hierarchies.  If the empty string is returned then
-            it should be ignored / not added as a child.
-        """
-        qualifier = ""
-        if kind == "class":
-            if short:
-                qualifier = "(C)"
-            else:
-                qualifier = "Class"
-        elif kind == "struct":
-            if short:
-                qualifier = "(S)"
-            else:
-                qualifier = "Struct"
-        elif kind == "function":
-            if short:
-                qualifier = "(Fn)"
-            else:
-                qualifier = "Function"
-        elif kind == "enum":
-            if short:
-                qualifier = "(E)"
-            else:
-                qualifier = "Enum"
-        # elif kind == "enumvalue":
-        #     pass
-        elif kind == "namespace":
-            if short:
-                qualifier = "(N)"
-            else:
-                qualifier = "Namespace"
-        elif kind == "define":
-            if short:
-                qualifier = "(Def)"
-            else:
-                qualifier = "Define"
-        elif kind == "typedef":
-            if short:
-                qualifier = "(T)"
-            else:
-                qualifier = "Typedef"
-        elif kind == "variable":
-            if short:
-                qualifier = "(V)"
-            else:
-                qualifier = "Variable"
-        elif kind == "file":
-            if short:
-                qualifier = "(F)"
-            else:
-                qualifier = "File"
-        elif kind == "dir":
-            if short:
-                qualifier = "(Dir)"
-            else:
-                qualifier = "Directory"
-        elif kind == "union":
-            if short:
-                qualifier = "(U)"
-            else:
-                qualifier = "Union"
-
-        return qualifier
-
-    @classmethod
-    def kindAsBreatheDirective(cls, kind):
+def directivesForKind(kind):
+    if kind == "class":
+        directive = "   :members:\n   :protected-members:\n   :undoc-members:\n"
+    elif kind == "struct":
+        directive = "   :members:\n   :protected-members:\n   :undoc-members:\n"
+    elif kind == "function":
         directive = ""
-        if kind == "class":
-            directive = "doxygenclass"
-        elif kind == "struct":
-            directive = "doxygenstruct"
-        elif kind == "function":
-            directive = "doxygenfunction"
-        elif kind == "enum":
-            directive = "doxygenenum"
-        # elif kind == "enumvalue":
-        #     pass
-        elif kind == "namespace":
-            directive = "doxygennamespace"
-        elif kind == "define":
-            directive = "doxygendefine"
-        elif kind == "typedef":
-            directive = "doxygentypedef"
-        elif kind == "variable":
-            directive = "doxygenvariable"
-        elif kind == "file":
-            directive = "doxygenfile"
-        elif kind == "union":
-            directive = "doxygenunion"
-
-        return directive
-
-    @classmethod
-    def directivesForKind(cls, kind):
-        if kind == "class":
-            directive = "   :members:\n   :protected-members:\n   :undoc-members:\n"
-        elif kind == "struct":
-            directive = "   :members:\n   :protected-members:\n   :undoc-members:\n"
-        elif kind == "function":
-            directive = ""
-        elif kind == "enum":
-            directive = ""
-        elif kind == "enumvalue":
-            directive = ""
-        elif kind == "namespace":
-            directive = "   :members:\n"
-        elif kind == "define":
-            directive = ""
-        elif kind == "typedef":
-            directive = ""
-        elif kind == "variable":
-            directive = ""
-        elif kind == "file":
-            directive = ""
-        else:
-            directive = ""
-
-        return directive
+    elif kind == "enum":
+        directive = ""
+    elif kind == "enumvalue":
+        directive = ""
+    elif kind == "namespace":
+        directive = "   :members:\n"
+    elif kind == "define":
+        directive = ""
+    elif kind == "typedef":
+        directive = ""
+    elif kind == "variable":
+        directive = ""
+    elif kind == "file":
+        directive = ""
+    else:
+        directive = ""
+    return directive
 
 
 class Node:
-    def __init__(self, breathe_compound):
-        self.compound = breathe_compound
-        self.kind     = breathe_compound.get_kind()
-        self.name     = breathe_compound.get_name()
-        self.refid    = breathe_compound.get_refid()
+    def __init__(self, breatheCompound):
+        self.compound = breatheCompound
+        self.kind     = breatheCompound.get_kind()
+        self.name     = breatheCompound.get_name()
+        self.refid    = breatheCompound.get_refid()
         self.children = []
         if self.kind == "file":
             self.namespaces_used   = []
@@ -273,8 +215,7 @@ class Node:
             self.program_listing   = []
             self.program_file      = ""
             self.program_link_name = ""
-
-        if self.kind == "dir":
+        elif self.kind == "dir":
             self.dir_file_generated = False
 
         self.file_name = None
@@ -287,6 +228,7 @@ class Node:
         # allows alphabetical sorting within types
         if self.kind == other.kind:
             return self.name.lower() < other.name.lower()
+        # treat structs and classes as the same type
         elif self.kind == "struct" or self.kind == "class":
             if other.kind != "struct" and other.kind != "class":
                 return True
@@ -321,16 +263,16 @@ class Node:
                 c.toConsole(level + 1, print_children=False)
         elif print_children:
             if self.kind == "file":
-                print("{}[[[ location=\"{}\" ]]]".format("  "*(level+1), self.location))
+                print("{}[[[ location=\"{}\" ]]]".format("  " * (level + 1), self.location))
                 for i in self.includes:
-                    print("{}- #include <{}>".format("  "*(level+1), i))
+                    print("{}- #include <{}>".format("  " * (level + 1), i))
                 for ref, name in self.included_by:
-                    print("{}- included by: [{}]".format("  "*(level+1), name))
+                    print("{}- included by: [{}]".format("  " * (level + 1), name))
                 for n in self.namespaces_used:
-                    n.toConsole(level+1, print_children=False)
+                    n.toConsole(level + 1, print_children=False)
             elif self.kind != "class" and self.kind != "struct" and self.kind != "union":
                 for c in self.children:
-                    c.toConsole(level+1)
+                    c.toConsole(level + 1)
 
     def typeSort(self):
         self.children.sort()
@@ -368,7 +310,9 @@ class Node:
                                                                     link_title)
                 if self.kind == "namespace":
                     next_indent = '  {}'.format(indent)
-                    stream.write('{}{}\n{}{}\n{}<ul>\n'.format(indent, opening_li, next_indent, html_link, next_indent))
+                    stream.write('{}{}\n{}{}\n{}<ul>\n'.format(indent, opening_li,
+                                                               next_indent, html_link,
+                                                               next_indent))
                 else:
                     stream.write('{}{}{}</li>\n'.format(indent, opening_li, html_link))
 
@@ -439,7 +383,9 @@ class Node:
                                                                     link_title)
                 if self.kind == "dir":
                     next_indent = '  {}'.format(indent)
-                    stream.write('{}{}\n{}{}\n{}<ul>\n'.format(indent, opening_li, next_indent, html_link, next_indent))
+                    stream.write('{}{}\n{}{}\n{}<ul>\n'.format(indent, opening_li,
+                                                               next_indent, html_link,
+                                                               next_indent))
                 else:
                     stream.write('{}{}{}</li>\n'.format(indent, opening_li, html_link))
 
@@ -484,11 +430,7 @@ class TextRoot(object):
     def __init__(self, breathe_root, root_directory, root_file_name, root_file_title, root_file_description, root_file_summary):
         super(TextRoot, self).__init__()
         self.name = "ROOT" # used in the TextNode class
-
-
         self.breathe_root = breathe_root
-
-
         self.class_like = [] # list of TextNodes
         self.namespaces = []
         self.all_compounds = []
@@ -509,6 +451,9 @@ class TextRoot(object):
         )
         self.directory_view_file = "{}.rst".format(
             self.full_root_file_path.replace(self.root_file_name, "directory_view_hierarchy")
+        )
+        self.unabridged_api_file = "{}.rst".format(
+            self.full_root_file_path.replace(self.root_file_name, "unabridged_api")
         )
 
 
@@ -549,7 +494,7 @@ class TextRoot(object):
         # doxygenfunction  <-+-> "function"   |
         self.functions       = [] #           |
         # no directive     <-+-> "dir"        |
-        self.dirs = []           #            |
+        self.dirs = []            #           |
         # doxygenfile      <-+-> "file"       |
         self.files           = [] #           |
         # not used, but could be supported in |
@@ -569,10 +514,9 @@ class TextRoot(object):
         # convenience lookup
         self.node_by_refid = {}
 
+        self.use_tree_view = True
+
         self.__parse()
-        # self.__post_process()
-        # self.__strip()
-        # self.__enumerate()
 
     def trackNodeIfUnseen(self, node):
         '''
@@ -605,8 +549,6 @@ class TextRoot(object):
                 self.typedefs.append(node)
             elif node.kind == "union":
                 self.unions.append(node)
-        else:
-            print("&&&&&&&&&&&&&&&&&&&&&&: {}, {}".format(node.kind, node.name))
 
     def discoverNeigbors(self, nodes_remaining, node):
         # discover neighbors of current node; some seem to not have get_member()
@@ -638,7 +580,6 @@ class TextRoot(object):
         nodes_remaining = [Node(compound) for compound in self.breathe_root.get_compound()]
         while len(nodes_remaining) > 0:
             curr_node = nodes_remaining.pop()
-            print("NODE: {}{}{}".format(curr_node.name, "__>><<__", curr_node.kind))
             self.trackNodeIfUnseen(curr_node)
             self.discoverNeigbors(nodes_remaining, curr_node)
 
@@ -737,7 +678,7 @@ class TextRoot(object):
                 break
             # otherwise, this is nested
             for p_rank, p_directory in reversed(traversal):
-                if p_rank == rank-1:
+                if p_rank == rank - 1:
                     if p_directory.name == "/".join(directory.name.split("/")[:-1]):
                         p_directory.children.append(directory)
                         if directory not in removals:
@@ -768,7 +709,7 @@ class TextRoot(object):
                 break
             # otherwise, this is nested
             for p_rank, p_namespace in reversed(traversal):
-                if p_rank == rank-1:
+                if p_rank == rank - 1:
                     if p_namespace.name == "::".join(namespace.name.split("::")[:-1]):
                         p_namespace.children.append(namespace)
                         if namespace not in removals:
@@ -789,7 +730,6 @@ class TextRoot(object):
         for n in self.namespaces:
             namespace_name = "{}::".format(n.name)
             for child in n.children:
-                # if child.kind == "function":
                 if namespace_name not in child.name:
                     child.name = "{}{}".format(namespace_name, child.name)
 
@@ -808,7 +748,7 @@ class TextRoot(object):
     def fileRefDiscovery(self):
         ''' Finds the missing components for files. '''
         if EXHALE_API_DOXY_OUTPUT_DIR == "":
-            sys.stderr.write("(!) The doxygen xml output directory was not specified!\n")
+            exclaimError("The doxygen xml output directory was not specified!")
             return
         # parse the doxygen xml file and extract all refid's put in it
         # keys: file object, values: list of refid's
@@ -828,7 +768,6 @@ class TextRoot(object):
                 doxy_xml_path = "{}{}.xml".format(EXHALE_API_DOXY_OUTPUT_DIR, f.refid)
                 with open(doxy_xml_path, "r") as doxy_file:
                     processing_code_listing = False # shows up at bottom of xml
-                    build_out_orphans       = False # one time only orphan sprawl
                     code_listing_finished   = False # use 'location' tag at bottom
                     for line in doxy_file:
                         if not processing_code_listing:
@@ -909,7 +848,6 @@ class TextRoot(object):
 
     def filePostProcess(self):
         ''' Now that each file has its location parsed from the xml, reparent to dirs '''
-        removals = []
         for f in self.files:
             dir_loc_parts = f.location.split("/")[:-1]
             num_parts = len(dir_loc_parts)
@@ -925,7 +863,6 @@ class TextRoot(object):
                     # we have found the directory we want
                     if d.name == dir_path:
                         d.children.append(f)
-                        removals.append(f)
                         break
                     # otherwise, try and find an owner
                     else:
@@ -933,9 +870,6 @@ class TextRoot(object):
                         for child in d.children:
                             if child.kind == "dir":
                                 nodes_remaining.append(child)
-
-        # for rm in removals:
-        #     self.files.remove(rm)
 
     def __deep_sort_list(self, lst):
         lst.sort()
@@ -988,7 +922,12 @@ class TextRoot(object):
     def initializeNodeFilenameAndLink(self, node):
         html_safe_name = node.name.replace(":", "_").replace("/", "_")
         node.file_name = "{}/exhale_{}_{}.rst".format(self.root_directory, node.kind, html_safe_name)
-        node.link_name = "{}_{}".format(TextNode.qualifyKind(node.kind).lower(), html_safe_name)
+        node.link_name = "{}_{}".format(qualifyKind(node.kind).lower(), html_safe_name)
+        if node.kind == "file":
+            node.program_file = "{}/exhale_program_listing_file_{}.rst".format(
+                self.root_directory, html_safe_name
+            )
+            node.program_link_name = "program_listing_file_{}".format(html_safe_name)
 
     def initializeAllNodes(self):
         for node in self.all_nodes:
@@ -1000,12 +939,18 @@ class TextRoot(object):
                 # generate a link label for every generated file
                 link_declaration = ".. _{}:\n\n".format(node.link_name)
                 # every generated file must have a header for sphinx to be happy
-                node.title = "{} {}".format(TextNode.qualifyKind(node.kind), node.name.split("::")[-1])
+                # breathe does not prepend the namespace for variables and typedefes, so
+                # I choose to leave the fully qualified name in the title for added clarity
+                if node.kind == "variable" or node.kind == "typedef":
+                    title = node.name
+                else:
+                    title = node.name.split("::")[-1]
+                node.title = "{} {}".format(qualifyKind(node.kind), title)
                 header = "{}\n{}\n\n".format(node.title, EXHALE_FILE_HEADING)
                 # inject the appropriate doxygen directive and name of this node
-                directive = ".. {}:: {}\n".format(TextNode.kindAsBreatheDirective(node.kind), node.name)
+                directive = ".. {}:: {}\n".format(kindAsBreatheDirective(node.kind), node.name)
                 # include any specific directives for this doxygen directive
-                specifications = "{}\n\n".format(TextNode.directivesForKind(node.kind))
+                specifications = "{}\n\n".format(directivesForKind(node.kind))
                 gen_file.write("{}{}{}{}".format(link_declaration, header, directive, specifications))
         except:
             exclaimError("Critical error while generating the file for [{}]".format(node.file_name))
@@ -1013,9 +958,6 @@ class TextRoot(object):
     def generateFileNodeDocuments(self):
         # quick pre-process to generate file and link names and program listings
         for f in self.files:
-            f.program_file = "{}/exhale_program_listing_{}_{}.rst".format(self.root_directory, f.kind, f.name.replace(":", "_"))
-            f.program_link_name = "program_listing_{}_{}".format(TextNode.qualifyKind(f.kind).lower(), f.name.replace(":", "_"))
-
             full_program_listing = '.. code-block:: cpp\n\n'
 
             for pgf_line in f.program_listing:
@@ -1033,22 +975,20 @@ class TextRoot(object):
                     # generate a link label for every generated file
                     link_declaration = ".. _{}:\n\n".format(f.program_link_name)
                     # every generated file must have a header for sphinx to be happy
-                    f.title = "Program Listing for {} {}".format(TextNode.qualifyKind(f.kind), f.name)
-                    header = "{}\n{}\n\n".format(f.title, EXHALE_FILE_HEADING)
+                    prog_title = "Program Listing for {} {}".format(qualifyKind(f.kind), f.name)
+                    header = "{}\n{}\n\n".format(prog_title, EXHALE_FILE_HEADING)
                     return_link = "- Return to documentation for :ref:`{}`\n\n".format(f.link_name)
                     # generate the headings and links for the children
                     # children_string = self.generateNamespaceChildrenString(nspace)
                     # write it all out
-                    gen_file.write("{}{}{}{}\n\n".format(link_declaration, header, return_link, full_program_listing))
+                    gen_file.write("{}{}{}{}\n\n".format(
+                        link_declaration, header, return_link, full_program_listing)
+                    )
             except:
                 exclaimError("Critical error while generating the file for [{}]".format(f.file_name))
 
-            f.program_file = f.program_file.split("/")[-1]
-
-
         for f in self.files:
             # sort the children
-            nsp_namespaces = []
             nsp_structs    = []
             nsp_classes    = []
             nsp_functions  = []
@@ -1069,14 +1009,10 @@ class TextRoot(object):
                 elif child.kind == "variable":
                     nsp_variables.append(child)
 
-            # self.namespaces_used = []
-            # self.includes        = []
-            # self.included_by     = [] # (refid, name) tuples for now
-            # self.location        = ""
-            # self.program_listing = []
-
             if len(f.location) > 0:
-                file_definition = "Definition (``{}``)\n{}\n\n- :ref:`{}`\n\n".format(f.location, EXHALE_SECTION_HEADING, f.program_link_name)
+                file_definition = "Definition (``{}``)\n{}\n\n- :ref:`{}`\n\n".format(
+                    f.location, EXHALE_SECTION_HEADING, f.program_link_name
+                )
             else:
                 file_definition = ""
 
@@ -1089,7 +1025,9 @@ class TextRoot(object):
                             local_file = incl_file
                             break
                     if local_file is not None:
-                        file_includes = "{}- ``{}`` (:ref:`{}`)\n".format(file_includes, incl, local_file.link_name)
+                        file_includes = "{}- ``{}`` (:ref:`{}`)\n".format(
+                            file_includes, incl, local_file.link_name
+                        )
                     else:
                         file_includes = "{}- ``{}``\n".format(file_includes, incl)
             else:
@@ -1105,7 +1043,6 @@ class TextRoot(object):
             else:
                 file_included_by = ""
 
-
             # generate their headings if they exist
             children_string = self.generateSortedChildListString("Namespaces", "", f.namespaces_used)
             children_string = self.generateSortedChildListString("Classes", children_string, nsp_structs + nsp_classes)
@@ -1114,23 +1051,19 @@ class TextRoot(object):
             children_string = self.generateSortedChildListString("Unions", children_string, nsp_unions)
             children_string = self.generateSortedChildListString("Variables", children_string, nsp_variables)
 
-            qualifier = TextNode.qualifyKind(f.kind)
-            if qualifier != "":
-                qualifier = "{} : ".format(qualifier)
-            else:
-                print("**********************{}*******************".format(f.name))
-
             try:
                 with open(f.file_name, "w") as gen_file:
                     # generate a link label for every generated file
                     link_declaration = ".. _{}:\n\n".format(f.link_name)
                     # every generated file must have a header for sphinx to be happy
-                    f.title = "{} {}".format(TextNode.qualifyKind(f.kind), f.name)
+                    f.title = "{} {}".format(qualifyKind(f.kind), f.name)
                     header = "{}\n{}\n\n".format(f.title, EXHALE_FILE_HEADING)
                     # generate the headings and links for the children
                     # children_string = self.generateNamespaceChildrenString(nspace)
                     # write it all out
-                    gen_file.write("{}{}{}{}{}{}\n\n".format(link_declaration, header, file_definition, file_includes, file_included_by, children_string))
+                    gen_file.write("{}{}{}{}\n{}\n{}\n\n".format(
+                        link_declaration, header, file_definition, file_includes, file_included_by, children_string)
+                    )
             except:
                 exclaimError("Critical error while generating the file for [{}]".format(f.file_name))
 
@@ -1166,11 +1099,13 @@ class TextRoot(object):
                 # generate a link label for every generated file
                 link_declaration = ".. _{}:\n\n".format(node.link_name)
                 # every generated file must have a header for sphinx to be happy
-                node.title = "{} {}".format(TextNode.qualifyKind(node.kind), node.name.split("/")[-1])
+                node.title = "{} {}".format(qualifyKind(node.kind), node.name.split("/")[-1])
                 header = "{}\n{}\n\n".format(node.title, EXHALE_FILE_HEADING)
                 # generate the headings and links for the children
                 # write it all out
-                gen_file.write("{}{}{}{}\n\n".format(link_declaration, header, child_dirs_string, child_files_string))
+                gen_file.write("{}{}{}\n{}\n\n".format(
+                    link_declaration, header, child_dirs_string, child_files_string)
+                )
         except:
             exclaimError("Critical error while generating the file for [{}]".format(node.file_name))
 
@@ -1197,6 +1132,8 @@ class TextRoot(object):
             self.generateSingleNodeRST(u)
         for v in self.variables:
             self.generateSingleNodeRST(v)
+        for d in self.defines:
+            self.generateSingleNodeRST(d)
 
         self.generateNamespaceNodeDocuments()
         self.generateFileNodeDocuments()
@@ -1253,7 +1190,7 @@ class TextRoot(object):
                 # generate a link label for every generated file
                 link_declaration = ".. _{}:\n\n".format(nspace.link_name)
                 # every generated file must have a header for sphinx to be happy
-                nspace.title = "{} {}".format(TextNode.qualifyKind(nspace.kind), nspace.name)
+                nspace.title = "{} {}".format(qualifyKind(nspace.kind), nspace.name)
                 header = "{}\n{}\n\n".format(nspace.title, EXHALE_FILE_HEADING)
                 # generate the headings and links for the children
                 children_string = self.generateNamespaceChildrenString(nspace)
@@ -1275,16 +1212,13 @@ class TextRoot(object):
             # generate this top level namespace
             self.generateSingleNamespace(n)
 
-    def generateClassView(self):
-        treeView = True
+    def generateClassView(self, treeView):
         class_view_stream = cStringIO.StringIO()
 
         for n in self.namespaces:
             n.toClassView(0, class_view_stream, treeView)
 
-        #
         # Add everything that was not nested in a namespace.
-        #
         missing = []
         # class-like objects (structs and classes)
         for cl in sorted(self.class_like):
@@ -1299,83 +1233,110 @@ class TextRoot(object):
             if not u.in_class_view:
                 missing.append(u)
 
-        idx = 0
-        last_missing_child = len(missing) - 1
-        for m in missing:
-            m.toClassView(0, class_view_stream, treeView, idx == last_missing_child)
-            idx += 1
+        if len(missing) > 0:
+            idx = 0
+            last_missing_child = len(missing) - 1
+            for m in missing:
+                m.toClassView(0, class_view_stream, treeView, idx == last_missing_child)
+                idx += 1
+        elif treeView:
+            # need to restart since there were no missing children found, otherwise the
+            # last namespace will not correctly have a lastChild
+            class_view_stream.close()
+            class_view_stream = cStringIO.StringIO()
 
+            last_nspace_index = len(self.namespaces) - 1
+            for idx in range(last_nspace_index + 1):
+                nspace = self.namespaces[idx]
+                nspace.toClassView(0, class_view_stream, treeView, idx == last_nspace_index)
+
+        # extract the value from the stream and close it down
         class_view_string = class_view_stream.getvalue()
         class_view_stream.close()
 
+        # inject the raw html for the treeView unordered lists
         if treeView:
+            # we need to indent everything to be under the .. raw:: html directive, add
+            # indentation so the html is readable while we are at it
             indented = re.sub(r'(.+)', r'        \1', class_view_string)
-            class_view_string = \
-                '.. raw:: html\n\n' \
-                '   <ul class="treeView">\n' \
-                '     <li>\n' \
-                '       <ul class="collapsibleList">\n' \
-                '{}' \
-                '       </ul><!-- collapsibleList -->\n' \
+            class_view_string =                               \
+                '.. raw:: html\n\n'                           \
+                '   <ul class="treeView">\n'                  \
+                '     <li>\n'                                 \
+                '       <ul class="collapsibleList">\n'       \
+                '{}'                                          \
+                '       </ul><!-- collapsibleList -->\n'      \
                 '     </li><!-- only tree view element -->\n' \
                 '   </ul><!-- treeView -->\n'.format(indented)
 
-        with open(self.class_view_file, "w") as cvf:
-            cvf.write("Class Hierarchy\n{}\n\n{}\n\n".format(EXHALE_SECTION_HEADING, class_view_string))
+        # write everything to file to be included in the root api later
+        try:
+            with open(self.class_view_file, "w") as cvf:
+                cvf.write("Class Hierarchy\n{}\n\n{}\n\n".format(EXHALE_SECTION_HEADING,
+                                                                 class_view_string))
+        except Exception as e:
+            exclaimError("Error writing the class hierarchy: {}".format(e))
 
-    def generateDirectoryView(self):
-        treeView = True
+    def generateDirectoryView(self, treeView):
         directory_view_stream = cStringIO.StringIO()
 
         for d in self.dirs:
-            # d.toDirectoryView(0, directory_view_stream, treeView)
-            d.inDirectoryView()
+            d.toDirectoryView(0, directory_view_stream, treeView)
 
-        #
-        # Add everything that was not nested in a namespace.
-        #
+        # add potential missing files (not sure if this is possible though)
         missing = []
-        # files
         for f in sorted(self.files):
             if not f.in_directory_view:
                 missing.append(f)
 
         found_missing = len(missing) > 0
         if found_missing:
-            for d in self.dirs:
-                d.toDirectoryView(0, directory_view_stream, treeView)
-
             idx = 0
             last_missing_child = len(missing) - 1
             for m in missing:
                 m.toDirectoryView(0, directory_view_stream, treeView, idx == last_missing_child)
                 idx += 1
-        else:
-            last_dir_index = len(self.dirs) - 1
-            for idx in rg(last_dir_index + 1):
-                d.toDirectoryView(0, directory_view_stream, treeView, idx == last_dir_index)
+        elif treeView:
+            # need to restart since there were no missing children found, otherwise the
+            # last directory will not correctly have a lastChild
+            directory_view_stream.close()
+            directory_view_stream = cStringIO.StringIO()
 
+            last_dir_index = len(self.dirs) - 1
+            for idx in range(last_dir_index + 1):
+                curr_d = self.dirs[idx]
+                curr_d.toDirectoryView(0, directory_view_stream, treeView, idx == last_dir_index)
+
+        # extract the value from the stream and close it down
         directory_view_string = directory_view_stream.getvalue()
         directory_view_stream.close()
 
+        # inject the raw html for the treeView unordered lists
         if treeView:
+            # we need to indent everything to be under the .. raw:: html directive, add
+            # indentation so the html is readable while we are at it
             indented = re.sub(r'(.+)', r'        \1', directory_view_string)
-            directory_view_string = \
-                '.. raw:: html\n\n' \
-                '   <ul class="treeView">\n' \
-                '     <li>\n' \
-                '       <ul class="collapsibleList">\n' \
-                '{}' \
-                '       </ul><!-- collapsibleList -->\n' \
+            directory_view_string =                           \
+                '.. raw:: html\n\n'                           \
+                '   <ul class="treeView">\n'                  \
+                '     <li>\n'                                 \
+                '       <ul class="collapsibleList">\n'       \
+                '{}'                                          \
+                '       </ul><!-- collapsibleList -->\n'      \
                 '     </li><!-- only tree view element -->\n' \
                 '   </ul><!-- treeView -->\n'.format(indented)
 
-        with open(self.directory_view_file, "w") as dvf:
-            dvf.write("Class Hierarchy\n{}\n\n{}\n\n".format(EXHALE_SECTION_HEADING, directory_view_string))
+        # write everything to file to be included in the root api later
+        try:
+            with open(self.directory_view_file, "w") as dvf:
+                dvf.write("File Hierarchy\n{}\n\n{}\n\n".format(EXHALE_SECTION_HEADING,
+                                                                directory_view_string))
+        except Exception as e:
+            exclaimError("Error writing the directory hierarchy: {}".format(e))
 
     def generateViewHierarchies(self):
-        self.generateClassView()
-        self.generateDirectoryView()
+        self.generateClassView(self.use_tree_view)
+        self.generateDirectoryView(self.use_tree_view)
 
     def generateAPIRootHeader(self):
         try:
@@ -1383,14 +1344,15 @@ class TextRoot(object):
                 os.mkdir(self.root_directory)
         except Exception as e:
             exclaimError("Cannot create the directory: {}\nError message: {}".format(self.root_directory, e))
-            return
+            raise Exception("Fatal error generating the api root, cannot continue.")
         try:
             with open(self.full_root_file_path, "w") as generated_index:
-                generated_index.write("{}\n{}\n\n{}\n\n".format(self.root_file_title,
-                                                            EXHALE_FILE_HEADING,
-                                                            self.root_file_description))
+                generated_index.write("{}\n{}\n\n{}\n\n".format(
+                    self.root_file_title, EXHALE_FILE_HEADING, self.root_file_description)
+                )
         except:
             exclaimError("Unable to create the root api file / header: {}".format(self.full_root_file_path))
+            raise Exception("Fatal error generating the api root, cannot continue.")
 
     def gerrymanderNodeFilenames(self):
         '''
@@ -1402,77 +1364,57 @@ class TextRoot(object):
         '''
         for node in self.all_nodes:
             node.file_name = node.file_name.split("/")[-1]
+            if node.kind == "file":
+                node.program_file = node.program_file.split("/")[-1]
+
+    def enumerateAll(self, subsectionTitle, lst, openFile):
+        if len(lst) > 0:
+            openFile.write("{}\n{}\n\n".format(subsectionTitle, EXHALE_SUBSECTION_HEADING))
+            for l in sorted(lst):
+                openFile.write(
+                    ".. toctree::\n"
+                    "   :maxdepth: {}\n\n"
+                    "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, l.file_name)
+                )
+
+    def generateUnabridgedAPI(self):
+        try:
+            with open(self.unabridged_api_file, "w") as full_api_file:
+                full_api_file.write("Full API\n{}\n\n".format(EXHALE_SECTION_HEADING))
+                all_namespaces = []
+                for n in self.namespaces:
+                    n.findNestedNamespaces(all_namespaces)
+                self.enumerateAll("Namespaces", all_namespaces, full_api_file)
+                self.enumerateAll("Classes and Structs", self.class_like, full_api_file)
+                self.enumerateAll("Enums", self.enums, full_api_file)
+                self.enumerateAll("Unions", self.unions, full_api_file)
+                self.enumerateAll("Functions", self.functions, full_api_file)
+                self.enumerateAll("Variables", self.variables, full_api_file)
+                self.enumerateAll("Defines", self.defines, full_api_file)
+                self.enumerateAll("Typedefs", self.typedefs, full_api_file)
+                all_directories = []
+                for d in self.dirs:
+                    d.findNestedDirectories(all_directories)
+                self.enumerateAll("Directories", all_directories, full_api_file)
+                self.enumerateAll("Files", self.files, full_api_file)
+        except Exception as e:
+            exclaimError("Error writing the unabridged API: {}".format(e))
 
     def generateAPIRootBody(self):
         try:
             self.gerrymanderNodeFilenames()
             self.generateViewHierarchies()
+            self.generateUnabridgedAPI()
             with open(self.full_root_file_path, "a") as generated_index:
                 generated_index.write(
                     ".. include:: {}\n\n".format(self.class_view_file.split("/")[-1])
                 )
-
                 generated_index.write(
                     ".. include:: {}\n\n".format(self.directory_view_file.split("/")[-1])
                 )
-
-                generated_index.write("All Files\n{}\n\n".format(EXHALE_SECTION_HEADING))
-
-                for f in sorted(self.files):
-                    generated_index.write(
-                        ".. toctree::\n"
-                        "   :maxdepth: {}\n\n"
-                        "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, f.file_name)
-                    )
-
-                # generated_index.write(views)
-                generated_index.write("All Directories:\n{}\n\n".format(EXHALE_SECTION_HEADING))
-                for d in self.dirs:
-                    generated_index.write(
-                        ".. toctree::\n"
-                        "   :maxdepth: {}\n\n"
-                        "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, d.file_name)
-                    )
-
-                # for cl in self.class_like:
-                #     generated_index.write(
-                #         ".. toctree::\n"
-                #         "   :maxdepth: {}\n\n"
-                #         "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, cl.file_name)
-                #     )
-                # for e in self.enums:
-                #     generated_index.write(
-                #         ".. toctree::\n"
-                #         "   :maxdepth: {}\n\n"
-                #         "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, e.file_name)
-                #     )
-                # for f in self.functions:
-                #     generated_index.write(
-                #         ".. toctree::\n"
-                #         "   :maxdepth: {}\n\n"
-                #         "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, f.file_name)
-                #     )
-
-                # for t in self.typedefs:
-                #     generated_index.write(
-                #         ".. toctree::\n"
-                #         "   :maxdepth: {}\n\n"
-                #         "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, t.file_name)
-                #     )
-                # for u in self.unions:
-                #     generated_index.write(
-                #         ".. toctree::\n"
-                #         "   :maxdepth: {}\n\n"
-                #         "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, u.file_name)
-                #     )
-                # for v in self.variables:
-                #     generated_index.write(
-                #         ".. toctree::\n"
-                #         "   :maxdepth: {}\n\n"
-                #         "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, v.file_name)
-                #     )
-
-
+                generated_index.write(
+                    ".. include:: {}\n\n".format(self.unabridged_api_file.split("/")[-1])
+                )
         except Exception as e:
             exclaimError("Unable to create the root api body: {}".format(e))
 
@@ -1482,7 +1424,6 @@ class TextRoot(object):
                 generated_index.write("{}\n\n".format(self.root_file_summary))
         except Exception as e:
             exclaimError("Unable to create the root api summary: {}".format(e))
-
 
     def generateFullAPI(self):
         '''
@@ -1498,15 +1439,15 @@ class TextRoot(object):
         you would link from a restructured text document to one of the individually
         generated files using the value of `Node.link_name`.
         '''
-        self.generateAPIRootHeader()
+        try:
+            self.generateAPIRootHeader()
+        except Exception as e:
+            raise e
         self.generateNodeDocuments()
         self.generateAPIRootBody()
         self.generateAPIRootSummary()
 
     def __parse(self):
-        for x in range(99):
-            print("{}".format(x*"+"))
-
         self.discoverAllNodes()
         self.reparentAll()
 
@@ -1529,283 +1470,3 @@ class TextRoot(object):
         self.toConsole()
 
         self.generateFullAPI()
-
-
-
-
-
-
-
-
-        #             #             #             #             #             #             #
-        ##           ###           ###           ###           ###           ###           ##
-        ###         #####         #####         #####         #####         #####         ###
-        ####       #######       #######       #######       #######       #######       ####
-        #####     #########     #########     #########     #########     #########     #####
-        ######   ###########   ###########   ###########   ###########   ###########   ######
-        ####### ############# ############# ############# ############# ############# #######
-        ######   ###########   ###########   ###########   ###########   ###########   ######
-        #####     #########     #########     #########     #########     #########     #####
-        ####       #######       #######       #######       #######       #######       ####
-        ###         #####         #####         #####         #####         #####         ###
-        ##           ###           ###           ###           ###           ###           ##
-        #             #             #             #             #             #             #
-        #
-        #
-        # add in the doxygen xml parsing stuff here to get all the missing refids for files
-        #
-        #
-
-
-
-
-
-
-
-
-
-
-
-        for x in range(99, 0, -1):
-            print("{}".format(x*"+"))
-
-
-    def __post_process(self):
-        # First, we need to account for nested namespaces
-        namespace_pop_indices = []
-        num_namespaces = len(self.namespaces)
-
-        for curr_idx in range(num_namespaces):
-            nspace = self.namespaces[curr_idx]
-            parts  = nspace.name.split("::")
-
-            if len(parts) > 1:
-                for idy in range(num_namespaces):
-                    if self.namespaces[idy].namespaced_add_child(nspace):
-                        namespace_pop_indices.append(curr_idx)
-                        break
-
-        for remove_idx in reversed(sorted(namespace_pop_indices)):
-            self.namespaces.pop(remove_idx)
-
-        # add a final namespace text node to house any items not declared in a namespace
-        self.namespaces.append(TextNode(self, None, "", "namespace"))
-
-        # Now that nested namespaces are accounted for, add all the class-like objects
-        # to their appropriate namespaces
-        clike_pop_indices = []
-        num_clike = len(self.class_like)
-        for curr_idx in range(num_clike):
-            clike = self.class_like[curr_idx]
-            parts = clike.name.split("::")
-
-            if len(parts) > 1:
-                found_home = False
-                for idx in range(len(self.namespaces)-1): # ignore last "global" namespace
-                    nspace = self.namespaces[idx]
-                    if nspace.namespaced_add_child(clike):
-                        clike_pop_indices.append(curr_idx)
-                        found_home = True
-                        break
-
-                # if we reach this part then something went wrong
-                if not found_home:
-                    raise RuntimeError("The class [{}] split on '::' could not find a namespace home.".format(clike.name))
-            else:
-                self.namespaces[-1].add_child(clike)
-                clike_pop_indices.append(curr_idx)
-
-        for remove_idx in reversed(sorted(clike_pop_indices)):
-            self.class_like.pop(remove_idx)
-
-    def __strip(self):
-        for n in self.namespaces:
-            n.strip()
-
-    def __enumerate(self):
-        # list of (enumeration_string, link_name, file_name, refid)
-        namespace_enumerations = []
-        # namespace_enumerations.append("Class Hierarchy")
-        # namespace_enumerations.append("=============================================")
-        namespace_link_to_file_map = {}
-        for n in self.namespaces:
-            n.enumerate(0, namespace_enumerations, namespace_link_to_file_map)
-
-
-        file_enumerations = []
-        # file_enumerations.append("\n\nFile Hierarchy")
-        # file_enumerations.append("=============================================")
-        file_link_to_file_map = {}
-        for f in self.files:
-            f.enumerate(0, file_enumerations, file_link_to_file_map)
-
-        print("\n\n:::::::::::::::::::::::::::::::::::::::::::")
-        print(":::::::::::::::::::::::::::::::::::::::::::")
-        print(":::::::::::::::::::::::::::::::::::::::::::\n\n")
-
-        print("Num total compounds: {}".format(len(self.all_compounds)))
-        print("Total class_like:    {}".format(len(self.class_like)))
-        print("Total namespaces:    {}".format(len(self.namespaces)))
-        print("Total files:         {}".format(len(self.files)))
-        print("Total top_level:     {}".format(len(self.top_level)))
-        print("Total dirs:          {}".format(len(self.dirs)))
-
-        try:
-            with open(self.root_file_name, "w") as generated_index:
-                generated_index.write("{}\n".format(self.root_file_title))
-                generated_index.write("==============================================================\n\n")
-                generated_index.write("{}\n\n".format(self.root_file_description))
-                # for link_name, file_name in GENERATED_FILES:
-                #     generated_index.write(
-                #         ".. toctree::\n"
-                #         "   :maxdepth: 1\n\n"
-                #         "   {}\n\n".format(file_name)
-                #     )
-
-                for n in self.namespaces:
-                    generated_index.write(
-                        ".. toctree::\n"
-                        "   :maxdepth: {}\n\n"
-                        "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, n.file_name)
-                    )
-
-                # keys: file object, values: list of refid's
-                doxygen_xml_file_ownerships = {}
-                regex = re.compile(r'.*refid="(\w+)".*')
-                for f in self.files:
-                    if EXHALE_API_DOXY_OUTPUT_DIR != "":
-                        doxygen_xml_file_ownerships[f] = []
-                        try:
-                            doxy_xml_path = "{}{}.xml".format(EXHALE_API_DOXY_OUTPUT_DIR, f.refid)
-                            with open(doxy_xml_path, "r") as doxy_file:
-                                # all_lines = doxy_file.readlines()
-                                for line in doxy_file:
-                                    match = regex.match(line)
-                                    if match is not None:
-                                        doxygen_xml_file_ownerships[f].append(match.groups()[0])
-
-                        except:
-                            sys.stderr.write("Unable to process doxygen xml for file [{}].\n".format(f.name))
-
-                print("++++++++++++++++++++++++++++++++++++++++++++++++")
-                print("++++++++++++++++++++++++++++++++++++++++++++++++")
-                print("++++++++++++++++++++++++++++++++++++++++++++++++")
-                print(doxygen_xml_file_ownerships)
-                # reduce this to build in opposite way......
-                # build list first of only refids that exist during
-                # construction
-                print("++++++++++++++++++++++++++++++++++++++++++++++++")
-                print("++++++++++++++++++++++++++++++++++++++++++++++++")
-                print("++++++++++++++++++++++++++++++++++++++++++++++++")
-
-                all_file_ownerships = {}
-
-                # initialize all of the dictionaries
-                for f in self.files:
-                    all_file_ownerships[f] = []
-
-                # parse all of the breath compounds found previously and attach them to
-                # the file that defines them
-                for compound, kind, name, refid in self.all_compounds:
-                    for f in self.files:
-                        if refid in doxygen_xml_file_ownerships[f]:
-                            all_file_ownerships[f].append((compound, kind, name, refid))
-
-                for f in self.files:
-                    for compound in f.compound.get_member():
-                        kind  = compound.get_kind()
-                        name  = compound.get_name()
-                        refid = compound.get_refid()
-                        all_file_ownerships[f].append((compound, kind, name, refid))
-
-                # now that we have all the compounds sorted by file, we need to take an
-                # extra step with namespaces.  when a variable [[ TEST: OR UNION ]] is
-                # in a namespace...wait....functions???
-                for f in self.files:
-                    print("** File: {}".format(f.name))
-                    for compound, kind, name, refid in all_file_ownerships[f]:
-                        if kind == "class":
-                            print("  - [class]:     {}".format(name))
-                        elif kind == "struct":
-                            print("  - [struct]:    {}".format(name))
-                        elif kind == "function":
-                            print("  - [function]:  {}".format(name))
-                        elif kind == "enum":
-                            print("  - [enum]:      {}".format(name))
-                        elif kind == "enumvalue":
-                            pass
-                        elif kind == "union":
-                            print("  - [union]:     {}".format(name))
-                        elif kind == "namespace":
-                            print("  - [namespace]: {}".format(name))
-                            for m in compound.get_member():
-                                print("    - member: {}, {}".format(m.get_kind(), m.get_name()))
-                        elif kind == "define":
-                            print("  - [define]:    {}".format(name))
-                        elif kind == "typedef":
-                            print("  - [typedef]:   {}".format(name))
-                        elif kind == "variable":
-                            print("  - [variable]:  {}".format(name))
-                        elif kind == "file":
-                            print("  - [file]:      {}".format(name))
-                        else:
-                            print("  - ?????????????????? {}".format(name))
-
-                print("****************************************************************")
-                for n in self.namespace_names:
-                    print("** Namespace: {}".format(n))
-                    for compound, kind, name, refid in self.namespace_children[n]:
-                        if kind == "class":
-                            print("  - [class]:     {}".format(name))
-                        elif kind == "struct":
-                            print("  - [struct]:    {}".format(name))
-                        elif kind == "function":
-                            print("  - [function]:  {}".format(name))
-                        elif kind == "enum":
-                            print("  - [enum]:      {}".format(name))
-                        elif kind == "enumvalue":
-                            pass
-                        elif kind == "union":
-                            print("  - [union]:     {}".format(name))
-                        elif kind == "namespace":
-                            print("  - [namespace]: {}".format(name))
-                            for m in compound.get_member():
-                                print("    - member: {}, {}".format(m.get_kind(), m.get_name()))
-                        elif kind == "define":
-                            print("  - [define]:    {}".format(name))
-                        elif kind == "typedef":
-                            print("  - [typedef]:   {}".format(name))
-                        elif kind == "variable":
-                            print("  - [variable]:  {}".format(name))
-                        elif kind == "file":
-                            print("  - [file]:      {}".format(name))
-                        else:
-                            print("  - ?????????????????? {}".format(name))
-
-
-
-                        # print("  - {}".format(c.get_name()))
-
-                    # # generate the full file documentation
-                    # try:
-                    #     with open(f.file_name, "w") as full_file:
-                    #         # generate a link label for every generated file
-                    #         link_declaration = ".. _{}:\n\n".format(f.link_name)
-                    #         # every generated file must have a header for sphinx to be happy
-                    #         # header = "{}\n========================================================================================\n\n".format(self.name.split("::")[-1])
-                    #         header = "{}\n----------------------------------------------------------------------------------------\n\n".format(f.name)
-                    #         # inject the appropriate doxygen directive and name of this node
-                    #         directive = ".. {}:: {}\n".format(TextNode.kindAsBreatheDirective(f.kind), f.name)
-                    #         # include any specific directives for this doxygen directive
-                    #         specifications = "{}\n\n".format(TextNode.directivesForKind(f.kind))
-                    #         full_file.write("{}{}{}{}".format(link_declaration, header, directive, specifications))
-                    # except Exception as e:
-                    #     sys.stderr.write("Unable to generate the documentation for file [{}].\n".format(f.name))
-
-                    # generated_index.write(
-                    #     ".. toctree::\n"
-                    #     "   :maxdepth: {}\n\n"
-                    #     "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, f.file_name)
-                    # )
-        except Exception as e:
-            sys.stderr.write("(!) Exception caught during enumeration of library api: {}\n".format(e))

@@ -18,7 +18,6 @@ Python bindings of all functionality are provided using
    quick_start
    compilation
    generated_api/library_root
-   reference
 
 So that you are aware
 ==============================================
