@@ -1076,30 +1076,16 @@ class TextRoot(object):
             f.program_link_name = "program_listing_{}_{}".format(TextNode.qualifyKind(f.kind).lower(), f.name.replace(":", "_"))
 
             full_program_listing = '.. code-block:: cpp\n\n'
-            code_lines = [] # (integer line number, text code)
 
-            # full_program_listing = '{}   <programlisting>'.format(full_program_listing)
             for pgf_line in f.program_listing:
-                line_match = line_regex.match(pgf_line)
-                if line_match is not None:
-                    line_number = line_match.groups()[0]
-                else:
-                    continue
                 fixed_whitespace = re.sub(r'<sp/>', ' ', pgf_line)
-                # for our purposes, this is good enough: http://stackoverflow.com/a/4869782/3814202
-                no_html_tags = re.sub(r'<[^<]+?>', '', fixed_whitespace)
-                revive_lt = re.sub(r'&lt;', '<', no_html_tags)
-                revive_gt = re.sub(r'&gt;', '>', revive_lt)
-                revive_amp = re.sub(r'&amp;', '&', revive_gt)
-                # final_trim = re.sub(r'\n\n', '\n', revive_amp)
+                # for our purposes, this is good enough:
+                #     http://stackoverflow.com/a/4869782/3814202
+                no_xml_tags = re.sub(r'<[^<]+?>', '', fixed_whitespace)
+                revive_lt   = re.sub(r'&lt;', '<', no_xml_tags)
+                revive_gt   = re.sub(r'&gt;', '>', revive_lt)
+                revive_amp  = re.sub(r'&amp;', '&', revive_gt)
                 full_program_listing = "{}   {}".format(full_program_listing, revive_amp)
-                code_lines.append((line_number, revive_amp))
-
-            for cl in code_lines:
-                print(cl)
-            # sys.exit(0)
-
-                # full_program_listing = "{}   {}\n".format(full_program_listing, final_trim)
 
             try:
                 with open(f.program_file, "w") as gen_file:
