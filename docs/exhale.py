@@ -171,7 +171,7 @@ class TextNode(object):
                 qualifier = "Namespace"
         elif kind == "define":
             if short:
-                qualifier = "(D)"
+                qualifier = "(Def)"
             else:
                 qualifier = "Define"
         elif kind == "typedef":
@@ -189,6 +189,11 @@ class TextNode(object):
                 qualifier = "(F)"
             else:
                 qualifier = "File"
+        elif kind == "dir":
+            if short:
+                qualifier = "(Dir)"
+            else:
+                qualifier = "Directory"
         elif kind == "union":
             if short:
                 qualifier = "(U)"
@@ -269,6 +274,9 @@ class Node:
             self.program_file      = ""
             self.program_link_name = ""
 
+        if self.kind == "dir":
+            self.dir_file_generated = False
+
         self.file_name = None
         self.link_name = None
         self.in_class_view = False
@@ -297,6 +305,12 @@ class Node:
             lst.append(self)
         for c in self.children:
             c.findNestedNamespaces(lst)
+
+    def findNestedDirectories(self, lst):
+        if self.kind == "dir":
+            lst.append(self)
+        for c in self.children:
+            c.findNestedDirectories(lst)
 
     def toConsole(self, level, print_children=True):
         indent = "  " * level
@@ -896,7 +910,7 @@ class TextRoot(object):
         self.consoleFormat("Variables", self.variables)
 
     def initializeNodeFilenameAndLink(self, node):
-        html_safe_name = node.name.replace(":", "_")
+        html_safe_name = node.name.replace(":", "_").replace("/", "_")
         node.file_name = "{}/exhale_{}_{}.rst".format(self.root_directory, node.kind, html_safe_name)
         node.link_name = "{}_{}".format(TextNode.qualifyKind(node.kind).lower(), html_safe_name)
 
@@ -1044,53 +1058,53 @@ class TextRoot(object):
             except:
                 exclaimError("Critical error while generating the file for [{}]".format(f.file_name))
 
+    def generateDirectoryNodeRST(self, node):
+        # find the relevant children: directories and files only
+        child_dirs  = []
+        child_files = []
+        for c in node.children:
+            if c.kind == "dir":
+                child_dirs.append(c)
+            elif c.kind == "file":
+                child_files.append(c)
+
+        # generate the subdirectory section
+        if len(child_dirs) > 0:
+            child_dirs_string = "Subdirectories\n{}\n\n".format(EXHALE_SECTION_HEADING)
+            for child_dir in sorted(child_dirs):
+                child_dirs_string = "{}- :ref:`{}`\n".format(child_dirs_string, child_dir.link_name)
+        else:
+            child_dirs_string = ""
+
+        # generate the files section
+        if len(child_files) > 0:
+            child_files_string = "Files\n{}\n\n".format(EXHALE_SECTION_HEADING)
+            for child_file in sorted(child_files):
+                child_files_string = "{}- :ref:`{}`\n".format(child_files_string, child_file.link_name)
+        else:
+            child_files_string = ""
+
+        # generate the file for this directory
+        try:
+            with open(node.file_name, "w") as gen_file:
+                # generate a link label for every generated file
+                link_declaration = ".. _{}:\n\n".format(node.link_name)
+                # every generated file must have a header for sphinx to be happy
+                node.title = "{} {}".format(TextNode.qualifyKind(node.kind), node.name.split("/")[-1])
+                header = "{}\n{}\n\n".format(node.title, EXHALE_FILE_HEADING)
+                # generate the headings and links for the children
+                # write it all out
+                gen_file.write("{}{}{}{}\n\n".format(link_declaration, header, child_dirs_string, child_files_string))
+        except:
+            exclaimError("Critical error while generating the file for [{}]".format(node.file_name))
+
     def generateDirectoryNodeDocuments(self):
-        # subdirectories do not appear in self.dirs, so we need to generate all of these
-        # files bottom-up so that parents can properly link to their children
-        # for d in self.dirs:
-        #     d.file_name = "{}/exhale_{}_{}.rst".format(self.root_directory, d.kind, d.name.replace(":", "_"))
-        #     d.link_name = "{}_{}".format(TextNode.qualifyKind(d.kind).lower(), d.name.replace(":", "_"))
+        all_dirs = []
+        for d in self.dirs:
+            d.findNestedDirectories(all_dirs)
 
-        #     child_dirs = []
-        #     child_files = []
-        #     for c in d.children:
-        #         if c.kind == "dir":
-        #             child_dirs.append(c)
-        #         elif c.kind == "file":
-        #             child_files.append(c)
-
-        #     if len(child_dirs) > 0:
-        #         child_dirs_string = "Subdirectories\n{}\n\n".format(EXHALE_SECTION_HEADING)
-        #         for child_dir in child_dirs:
-        #             child_dir.file_name = "{}/exhale_{}_{}.rst".format(self.root_directory, child_dir.kind, child_dir.name.replace(":", "_"))
-        #             child_dir.link_name = "{}_{}".format(TextNode.qualifyKind(child_dir.kind).lower(), child_dir.name.replace(":", "_"))
-        #             child_dirs_string = "{}- :ref:`{}`\n".format(child_dirs_string, child_dir.link_name)
-        #     else:
-        #         dirs_string = ""
-
-        #     if len(child_files) > 0:
-        #         child_files_string = "Files\n{}\n\n".format(EXHALE_SECTION_HEADING)
-        #         for child_file in child_files:
-        #     else:
-        #         child_files_string = ""
-
-
-        #     try:
-        #         with open(d.file_name, "w") as gen_file:
-        #             # generate a link label for every generated file
-        #             link_declaration = ".. _{}:\n\n".format(f.link_name)
-        #             # every generated file must have a header for sphinx to be happy
-        #             f.title = "{} {}".format(TextNode.qualifyKind(f.kind), f.name)
-        #             header = "{}\n{}\n\n".format(f.title, EXHALE_FILE_HEADING)
-        #             # generate the headings and links for the children
-        #             # children_string = self.generateNamespaceChildrenString(nspace)
-        #             # write it all out
-        #             gen_file.write("{}{}{}{}{}{}\n\n".format(link_declaration, header, file_definition, file_includes, file_included_by, children_string))
-        #     except:
-        #         exclaimError("Critical error while generating the file for [{}]".format(f.file_name))
-
-        pass
-
+        for d in all_dirs:
+            self.generateDirectoryNodeRST(d)
 
     def generateNodeDocuments(self):
         self.initializeAllNodes()
@@ -1284,11 +1298,12 @@ class TextRoot(object):
                     )
 
                 # generated_index.write(views)
-                for n in self.namespaces:
+                generated_index.write("All Directories:\n{}\n\n".format(EXHALE_SECTION_HEADING))
+                for d in self.dirs:
                     generated_index.write(
                         ".. toctree::\n"
                         "   :maxdepth: {}\n\n"
-                        "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, n.file_name)
+                        "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, d.file_name)
                     )
 
                 # for cl in self.class_like:
