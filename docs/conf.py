@@ -381,7 +381,7 @@ def generate_library_api():
     ''')
 
     # import the exhale module from the current directory and generate the api
-    sys.path.append(os.path.abspath('.'))
+    sys.path.append(os.path.abspath('./exhale'))
     from exhale import generate
     # change to pass a dict with defaults for locations etc
     generate(library_api_directory, library_api_file, library_api_title, library_api_brief, library_api_summary, "./doxyoutput/xml/index.xml")

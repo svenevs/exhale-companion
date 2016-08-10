@@ -4,7 +4,9 @@ import re
 import os
 import cStringIO
 
-__all__ = ['generate', 'TextRoot', 'Node']
+__all__ = ['generate', 'ExhaleRoot', 'ExhaleNode', 'exclaimError', 'qualifyKind',
+           'kindAsBreatheDirective', 'directivesForKind']
+__name__ = "exhale"
 
 EXHALE_API_TOCTREE_MAX_DEPTH = 5
 '''
@@ -30,6 +32,13 @@ EXHALE_SECTION_HEADING = "-" * 88
 EXHALE_SUBSECTION_HEADING = '*' * 88
 ''' The restructured text sub-section heading separator. '''
 
+EXHALE_KIND_DIRECTIVES_FUNCTION = None
+'''
+    User specified override of `directivesForKind`.  No safety checks are performed for
+    externally provided functions.  Change the functionality of `directivesForKind` by
+    specifiying a function in the dictionary passed to `generate`.
+'''
+
 
 def generate(root_generated_directory, root_generated_file, root_generated_title,
                        root_after_title_description, root_after_body_summary, doxygen_xml_index_path,
@@ -54,7 +63,7 @@ def generate(root_generated_directory, root_generated_file, root_generated_title
         sys.stderr.write("Could not use 'breathe' to parse the root 'doxygen' index.xml.\n")
 
     if breathe_root is not None:
-        text_root = TextRoot(breathe_root, root_generated_directory, root_generated_file, root_generated_title, root_after_title_description, root_after_body_summary)
+        text_root = ExhaleRoot(breathe_root, root_generated_directory, root_generated_file, root_generated_title, root_after_title_description, root_after_body_summary)
         # for n in text_root.namespaces:
         #     n.toConsole(0)
 
@@ -91,9 +100,10 @@ def exclaimError(msg, ascii_fmt="34;1m"):
 
 
 def qualifyKind(kind):
-    """
+    '''
     Qualifies the breathe ``kind`` and returns an qualifier string describing this
-    to be used for the text output.
+    to be used for the text output.  The return value is actually just the kind with
+    the first letter capital at this point.
 
     :type:  str
     :param: kind
@@ -103,7 +113,7 @@ def qualifyKind(kind):
     :return:
     The qualifying string that will be used to build the restructured text titles and
     other qualifying names.  If the empty string is returned then it was not recognized.
-    """
+    '''
     qualifier = ""
     if kind == "class":
         qualifier = "Class"
@@ -131,24 +141,57 @@ def qualifyKind(kind):
         qualifier = "Union"
     return qualifier
 
-# Breathe Directive     +   Breathe compound.kind
-#    doxygenclass     <-+-> "class"
-#    doxygendefine    <-+-> "define"
-#    doxygenenum      <-+-> "enum"
-#    doxygenenumvalue <-+-> "enumvalue"
-#    doxygenfile      <-+-> "file"
-#    autodoxygenfile  <-+-> IGNORE
-#    doxygenfunction  <-+-> "function"
-#    doxygengroup     <-+-> "group" UNSUPPORTED
-#    doxygenindex     <-+-> IGNORE
-#    autodoxygenindex <-+-> IGNORE
-#    doxygennamespace <-+-> "namespace"
-#    doxygenstruct    <-+-> "struct"
-#    doxygentypedef   <-+-> "typedef"
-#    doxygenunion     <-+-> BROKEN IN BREATHE
-#    doxygenvariable  <-+-> "variable"
+
 def kindAsBreatheDirective(kind):
-    directive = ""
+    '''
+    Returns the appropriate breathe restructured text directive for the specified kind.
+    The output for a given kind is as follows:
+
+    +--------------------+-------------------------+
+    | Output Directive   | Input Kind              |
+    +--------------------+-------------------------+
+    | "doxygenclass"     | "class"                 |
+    +--------------------+-------------------------+
+    | "doxygendefine"    | "define"                |
+    +--------------------+-------------------------+
+    | "doxygenenum"      | "enum"                  |
+    +--------------------+-------------------------+
+    | "doxygenenumvalue" | "enumvalue"             |
+    +--------------------+-------------------------+
+    | "doxygenfile"      | "file"                  |
+    +--------------------+-------------------------+
+    | "doxygenfunction"  | "function"              |
+    +--------------------+-------------------------+
+    | "doxygengroup"     | "group"                 |
+    +--------------------+-------------------------+
+    | "doxygennamespace" | "namespace"             |
+    +--------------------+-------------------------+
+    | "doxygenstruct"    | "struct"                |
+    +--------------------+-------------------------+
+    | "doxygentypedef"   | "typedef"               |
+    +--------------------+-------------------------+
+    | "doxygenunion"     | "union"                 |
+    +--------------------+-------------------------+
+    | "doxygenvariable"  | "variable"              |
+    +--------------------+-------------------------+
+
+    The following breathe kinds are ignored:
+    - "autodoxygenfile"
+    - "doxygenindex"
+    - "autodoxygenindex"
+
+    Note also that although a return value is generated, neither ``enumvalue`` nor
+    ``group`` are actually used.
+
+    :type:  str
+    :param: kind
+    The kind of the breathe compound / ExhaleNode object (same values).
+
+    :rtype: str
+    :return:
+    The directive to be used for the given `kind`.  The empty string is returned for
+    both unrecognized and ignored input values.
+    '''
     if kind == "class":
         directive = "doxygenclass"
     elif kind == "struct":
@@ -171,36 +214,77 @@ def kindAsBreatheDirective(kind):
         directive = "doxygenfile"
     elif kind == "union":
         directive = "doxygenunion"
-    return directive
-
-
-def directivesForKind(kind):
-    if kind == "class":
-        directive = "   :members:\n   :protected-members:\n   :undoc-members:\n"
-    elif kind == "struct":
-        directive = "   :members:\n   :protected-members:\n   :undoc-members:\n"
-    elif kind == "function":
-        directive = ""
-    elif kind == "enum":
-        directive = ""
-    elif kind == "enumvalue":
-        directive = ""
-    elif kind == "namespace":
-        directive = "   :members:\n"
-    elif kind == "define":
-        directive = ""
-    elif kind == "typedef":
-        directive = ""
-    elif kind == "variable":
-        directive = ""
-    elif kind == "file":
-        directive = ""
+    elif kind == "group":# unused
+        directive = "doxygengroup"
     else:
         directive = ""
     return directive
 
 
-class Node:
+def directivesForKind(kind):
+    '''
+    Returns the relevant modifiers for the restructured text directive associated with
+    the input kind.  The only considered values for the default implementation are
+    ``class`` and ``struct``, for which the return value is exactly
+
+        "   :members:\\n   :protected-members:\\n   :undoc-members:\\n"
+
+    Formatting of the return is fundamentally important, it must include both the prior
+    indentation as well as newlines separating any relevant directive modifiers.  The
+    way the framework uses this function is very specific; if you do not follow the
+    conventions then sphinx will explode.
+
+    Consider a ``struct thing`` being documented.  The file generated for this will be
+
+        .. _struct_thing:
+
+        Struct thing
+        ================================================================================
+
+        .. doxygenstruct:: thing
+           :members:
+           :protected-members:
+           :undoc-members:
+
+    Assuming the first two lines will be in a variable called ``link_declaration``, and
+    the next three lines are stored in ``header``, the following is performed:
+
+        directive = ".. {}:: {}\n".format(kindAsBreatheDirective(node.kind), node.name)
+        specifications = "{}\n\n".format(directivesForKind(node.kind))
+        gen_file.write("{}{}{}{}".format(link_declaration, header, directive, specifications))
+
+    That is, **no preceding newline** should be returned from your custom function, and
+    **no trailing newline** is needed.  Your indentation for each specifier should be
+    **exactly three spaces**, and if you want more than one you need a newline in between
+    every specification you want to include.  Whitespace control is handled internally
+    because many of the directives do not need anything added.  For a full listing of
+    what your specifier options are, refer to the breathe documentation:
+
+        http://breathe.readthedocs.io/en/latest/directives.html
+
+    :type:  str
+    :param: kind
+    The kind of the node we are generating the directive specifications for.
+
+    :rtype: str
+    :return:
+    The correctly formatted specifier(s) for the given `kind`.  If no specifier(s) are
+    necessary or desired, the empty string is defined.
+
+    '''
+    # use the custom directives function
+    if EXHALE_KIND_DIRECTIVES_FUNCTION is not None:
+        return EXHALE_KIND_DIRECTIVES_FUNCTION(kind)
+
+    # otherwise, just provide class and struct
+    if kind == "class" or kind == "struct":
+        directive = "   :members:\n   :protected-members:\n   :undoc-members:"
+    else:
+        directive = ""
+    return directive
+
+
+class ExhaleNode:
     def __init__(self, breatheCompound):
         self.compound = breatheCompound
         self.kind     = breatheCompound.get_kind()
@@ -425,10 +509,9 @@ class Node:
                     stream.write("  {}</ul>\n{}</li>\n".format(indent, indent))
 
 
-class TextRoot(object):
+class ExhaleRoot:
     """docstring for TextRoot"""
     def __init__(self, breathe_root, root_directory, root_file_name, root_file_title, root_file_description, root_file_summary):
-        super(TextRoot, self).__init__()
         self.name = "ROOT" # used in the TextNode class
         self.breathe_root = breathe_root
         self.class_like = [] # list of TextNodes
@@ -558,7 +641,7 @@ class TextRoot(object):
                 if member not in self.all_compounds:
                     self.all_compounds.append(member)
                     # if we haven't seen this compound yet, make a node
-                    child_node = Node(member)
+                    child_node = ExhaleNode(member)
                     # if the current node is a class, struct, union, or enum it's
                     # ignore variables, functions, etc
                     if node.kind != "class" and node.kind != "struct" and node.kind != "union":
@@ -577,7 +660,7 @@ class TextRoot(object):
         # When you call the breathe_root.get_compound() method, it returns a list of the
         # top level source nodes.  These start out on the stack, and we add their
         # children if they have not already been visited before.
-        nodes_remaining = [Node(compound) for compound in self.breathe_root.get_compound()]
+        nodes_remaining = [ExhaleNode(compound) for compound in self.breathe_root.get_compound()]
         while len(nodes_remaining) > 0:
             curr_node = nodes_remaining.pop()
             self.trackNodeIfUnseen(curr_node)
