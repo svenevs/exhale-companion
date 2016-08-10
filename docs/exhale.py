@@ -121,44 +121,6 @@ def exclaimError(msg, ascii_fmt="34;1m"):
 # enums show up in the namespace member list, classes, structs, and functions do not
 class TextNode(object):
     """docstring for TextNode"""
-    def __init__(self, parent, breathe_compound, breathe_name, breathe_kind):
-        super(TextNode, self).__init__()
-        self.parent = parent
-        self.compound = breathe_compound
-        self.name = breathe_name
-        self.kind = breathe_kind
-        self.children = []
-        self.link_name = None
-        self.file_name = None
-        if breathe_compound is not None:
-            self.refid = self.compound.get_refid()
-        else:
-            self.refid = "#"
-
-    def add_child(self, child):
-        child_already_added = False
-        for c in self.children:
-            print("+++ [self={}] -- [child={}] +++".format(self.name, child.name))
-            if c.name == child.name:
-                child_already_added = True
-                print("*********************************************")
-                break
-
-        if not child_already_added:
-            self.children.append(child)
-            child.parent = self
-
-    def strip(self):
-        pop_indices = []
-        # for idx in range(len(self.children)):
-        #     child_kind = self.children[idx].kind
-        #     if child_kind == "enum" or child_kind == "enumvalue" or child_kind == "variable" or \
-        #        child_kind == "namespace":
-        #         pop_indices.append(idx)
-
-        # for idx in reversed(sorted(pop_indices)):
-        #     self.children.pop(idx)
-
     @classmethod
     def qualifyKind(cls, kind, short=False):
         """
@@ -290,112 +252,6 @@ class TextNode(object):
 
         return directive
 
-    def toConsole(self, indent_level):
-        indent = " " * (indent_level * 4)
-        qualifier = TextNode.qualifyKind(self.kind)
-        if qualifier != "":
-            qualifier = "{} : ".format(qualifier)
-        else:
-            print("**********************{}*******************".format(self.name))
-
-        print("{}{}{}".format(indent, qualifier, self.name))
-        for c in self.children:
-            c.toConsole(indent_level + 1)
-
-    def enumerate(self, indent_level, enum_link_file_list, generated_label_to_file_map):
-        indent = " " * (indent_level * 4)
-
-        qualifier = TextNode.qualifyKind(self.kind)
-        if qualifier != "":
-            qualifier = "{} : ".format(qualifier)
-        else:
-            print("**********************{}*******************".format(self.name))
-
-        self.link_name = self.name.replace(":", "_")
-        self.file_name = "generated_api_{}.rst".format(self.link_name)
-
-        # every namespace gets its own file that children will append to
-        if self.kind == "namespace":
-            if self.name == "":
-                self.name = "Unscoped Global Namespace"
-                self.link_name = self.name.replace(' ', '_')
-                self.file_name = "generated_api_{}.rst".format(self.link_name)
-                self.file_name = "generated_api_unscoped_global_namespace.rst"
-            try:
-                with open(self.file_name, "w") as gen_file:
-                    # generate a link label for every generated file
-                    link_declaration = ".. _{}:\n\n".format(self.link_name)
-                    # every generated file must have a header for sphinx to be happy
-                    header = "Namespace ``{}``\n========================================================================================\n\n".format(self.name.split("::")[-1])
-                    # inject the appropriate doxygen directive and name of this node
-                    # directive = ".. {}:: {}\n".format(TextNode.kindAsBreatheDirective(self.kind), self.name)
-                    # include any specific directives for this doxygen directive
-                    # specifications = "{}\n\n".format(TextNode.directivesForKind(self.kind))
-                    gen_file.write("{}{}".format(link_declaration, header))
-            except:
-                raise RuntimeError("Critical error while generating the file for [{}]".format(self.name))
-
-            # nested namespaces need a little extra care, only one level for the toctree
-            # to avoid confusing layouts
-            if self.parent.name != "ROOT" and self.parent.kind == "namespace":
-                with open(self.parent.file_name, "a") as parent_file:
-                    parent_file.write(
-                        ".. toctree::\n"
-                        "   :maxdepth: 1\n\n"
-                        "   {}\n\n".format(self.file_name)
-                    )
-        elif self.parent.name != "ROOT" and self.parent.kind == "namespace":
-            try:
-                # generate the file for this node
-                with open(self.file_name, "w") as gen_file:
-                    # generate a link label for every generated file
-                    link_declaration = ".. _{}:\n\n".format(self.link_name)
-                    # every generated file must have a header for sphinx to be happy
-                    # header = "{}\n========================================================================================\n\n".format(self.name.split("::")[-1])
-                    header = "{}\n----------------------------------------------------------------------------------------\n\n".format(self.name.split("::")[-1])
-                    # inject the appropriate doxygen directive and name of this node
-                    directive = ".. {}:: {}\n".format(TextNode.kindAsBreatheDirective(self.kind), self.name)
-                    # include any specific directives for this doxygen directive
-                    specifications = "{}\n\n".format(TextNode.directivesForKind(self.kind))
-                    gen_file.write("{}{}{}{}".format(link_declaration, header, directive, specifications))
-
-                # add this node to the parent namespace, toctree maxdepth of 1 since there
-                # will only be one item listed in this newly generated file
-                with open(self.parent.file_name, "a") as parent_file:
-                    parent_file.write(
-                        ".. toctree::\n"
-                        "   :maxdepth: 1\n\n"
-                        "   {}\n\n".format(self.file_name)
-                    )
-            except:
-                raise RuntimeError("Critical error while generating the file for [{}]".format(self.name))
-
-        for c in self.children:
-            c.enumerate(indent_level+1, enum_link_file_list, generated_label_to_file_map)
-
-    def namespaced_add_child(self, child):
-        if self.kind != "namespace":
-            return False
-
-        parts = child.name.split("::")
-        num_parts = len(parts)
-        if(num_parts <= 1):
-            return False
-
-        resolved_name = parts.pop(-1) # grabs the last one
-        prepended_namespace = "::".join(p for p in parts)
-
-        if self.name == prepended_namespace:
-            self.children.append(child)
-            child.parent = self
-            return True
-        else:
-            for c in self.children:
-                if c.namespaced_add_child(child):
-                    return True
-
-        return False
-
 
 class Node:
     def __init__(self, breathe_compound):
@@ -413,8 +269,8 @@ class Node:
             self.program_file      = ""
             self.program_link_name = ""
 
-        self.file_name = ""
-        self.link_name = ""
+        self.file_name = None
+        self.link_name = None
         self.in_class_view = False
         self.title = ""
 
@@ -445,17 +301,21 @@ class Node:
     def toConsole(self, level, print_children=True):
         indent = "  " * level
         print("{}- [{}]: {}".format(indent, self.kind, self.name))
-        if self.kind == "file":
-            print("{}[[[ location=\"{}\" ]]]".format("  "*(level+1), self.location))
-            for i in self.includes:
-                print("{}- #include <{}>".format("  "*(level+1), i))
-            for ref, name in self.included_by:
-                print("{}- included by: [{}]".format("  "*(level+1), name))
-            for n in self.namespaces_used:
-                n.toConsole(level+1, print_children=False)
-        if print_children and self.kind != "class" and self.kind != "struct" and self.kind != "union":
+        if self.kind == "dir":
             for c in self.children:
-                c.toConsole(level+1)
+                c.toConsole(level + 1, print_children=False)
+        elif print_children:
+            if self.kind == "file":
+                print("{}[[[ location=\"{}\" ]]]".format("  "*(level+1), self.location))
+                for i in self.includes:
+                    print("{}- #include <{}>".format("  "*(level+1), i))
+                for ref, name in self.included_by:
+                    print("{}- included by: [{}]".format("  "*(level+1), name))
+                for n in self.namespaces_used:
+                    n.toConsole(level+1, print_children=False)
+            elif self.kind != "class" and self.kind != "struct" and self.kind != "union":
+                for c in self.children:
+                    c.toConsole(level+1)
 
     def typeSort(self):
         self.children.sort()
@@ -1035,15 +895,16 @@ class TextRoot(object):
         self.consoleFormat("Unions", self.unions)
         self.consoleFormat("Variables", self.variables)
 
-    def generateSingleNodeRST(self, node):
-        qualifier = TextNode.qualifyKind(node.kind)
-        if qualifier != "":
-            qualifier = "{} : ".format(qualifier)
-        else:
-            print("**********************{}*******************".format(node.name))
+    def initializeNodeFilenameAndLink(self, node):
+        html_safe_name = node.name.replace(":", "_")
+        node.file_name = "{}/exhale_{}_{}.rst".format(self.root_directory, node.kind, html_safe_name)
+        node.link_name = "{}_{}".format(TextNode.qualifyKind(node.kind).lower(), html_safe_name)
 
-        node.file_name = "{}/exhale_{}_{}.rst".format(self.root_directory, node.kind, node.name.replace(":", "_"))
-        node.link_name = "{}_{}".format(TextNode.qualifyKind(node.kind).lower(), node.name.replace(":", "_"))
+    def initializeAllNodes(self):
+        for node in self.all_nodes:
+            self.initializeNodeFilenameAndLink(node)
+
+    def generateSingleNodeRST(self, node):
         try:
             with open(node.file_name, "w") as gen_file:
                 # generate a link label for every generated file
@@ -1059,19 +920,9 @@ class TextRoot(object):
         except:
             exclaimError("Critical error while generating the file for [{}]".format(node.file_name))
 
-        # generation of the file needs to happen relative to conf.py, but the remainder
-        # of the time we want to use a toctree or include we want a filename relative
-        # to the location of the exhale generated_api
-        node.file_name = node.file_name.split("/")[-1]
-
     def generateFileNodeDocuments(self):
-        line_regex = re.compile(r'.*lineno="(\d+)".*')
         # quick pre-process to generate file and link names and program listings
         for f in self.files:
-            f.file_name = "{}/exhale_{}_{}.rst".format(self.root_directory, f.kind, f.name.replace(":", "_"))
-            # nspace.link_name = nspace.name.replace(":", "_")
-            f.link_name = "{}_{}".format(TextNode.qualifyKind(f.kind).lower(), f.name.replace(":", "_"))
-
             f.program_file = "{}/exhale_program_listing_{}_{}.rst".format(self.root_directory, f.kind, f.name.replace(":", "_"))
             f.program_link_name = "program_listing_{}_{}".format(TextNode.qualifyKind(f.kind).lower(), f.name.replace(":", "_"))
 
@@ -1193,13 +1044,57 @@ class TextRoot(object):
             except:
                 exclaimError("Critical error while generating the file for [{}]".format(f.file_name))
 
-            # generation of the file needs to happen relative to conf.py, but the remainder
-            # of the time we want to use a toctree or include we want a filename relative
-            # to the location of the exhale generated_api
-            f.file_name = f.file_name.split("/")[-1]
+    def generateDirectoryNodeDocuments(self):
+        # subdirectories do not appear in self.dirs, so we need to generate all of these
+        # files bottom-up so that parents can properly link to their children
+        # for d in self.dirs:
+        #     d.file_name = "{}/exhale_{}_{}.rst".format(self.root_directory, d.kind, d.name.replace(":", "_"))
+        #     d.link_name = "{}_{}".format(TextNode.qualifyKind(d.kind).lower(), d.name.replace(":", "_"))
+
+        #     child_dirs = []
+        #     child_files = []
+        #     for c in d.children:
+        #         if c.kind == "dir":
+        #             child_dirs.append(c)
+        #         elif c.kind == "file":
+        #             child_files.append(c)
+
+        #     if len(child_dirs) > 0:
+        #         child_dirs_string = "Subdirectories\n{}\n\n".format(EXHALE_SECTION_HEADING)
+        #         for child_dir in child_dirs:
+        #             child_dir.file_name = "{}/exhale_{}_{}.rst".format(self.root_directory, child_dir.kind, child_dir.name.replace(":", "_"))
+        #             child_dir.link_name = "{}_{}".format(TextNode.qualifyKind(child_dir.kind).lower(), child_dir.name.replace(":", "_"))
+        #             child_dirs_string = "{}- :ref:`{}`\n".format(child_dirs_string, child_dir.link_name)
+        #     else:
+        #         dirs_string = ""
+
+        #     if len(child_files) > 0:
+        #         child_files_string = "Files\n{}\n\n".format(EXHALE_SECTION_HEADING)
+        #         for child_file in child_files:
+        #     else:
+        #         child_files_string = ""
+
+
+        #     try:
+        #         with open(d.file_name, "w") as gen_file:
+        #             # generate a link label for every generated file
+        #             link_declaration = ".. _{}:\n\n".format(f.link_name)
+        #             # every generated file must have a header for sphinx to be happy
+        #             f.title = "{} {}".format(TextNode.qualifyKind(f.kind), f.name)
+        #             header = "{}\n{}\n\n".format(f.title, EXHALE_FILE_HEADING)
+        #             # generate the headings and links for the children
+        #             # children_string = self.generateNamespaceChildrenString(nspace)
+        #             # write it all out
+        #             gen_file.write("{}{}{}{}{}{}\n\n".format(link_declaration, header, file_definition, file_includes, file_included_by, children_string))
+        #     except:
+        #         exclaimError("Critical error while generating the file for [{}]".format(f.file_name))
+
+        pass
 
 
     def generateNodeDocuments(self):
+        self.initializeAllNodes()
+
         for cl in self.class_like:
             self.generateSingleNodeRST(cl)
         for e in self.enums:
@@ -1212,8 +1107,10 @@ class TextRoot(object):
             self.generateSingleNodeRST(u)
         for v in self.variables:
             self.generateSingleNodeRST(v)
+
         self.generateNamespaceNodeDocuments()
         self.generateFileNodeDocuments()
+        self.generateDirectoryNodeDocuments()
 
     def generateSortedChildListString(self, section_title, previous_string, lst):
         if lst:
@@ -1261,15 +1158,6 @@ class TextRoot(object):
         return children_string
 
     def generateSingleNamespace(self, nspace):
-        qualifier = TextNode.qualifyKind(nspace.kind)
-        if qualifier != "":
-            qualifier = "{} : ".format(qualifier)
-        else:
-            print("**********************{}*******************".format(nspace.name))
-
-        nspace.file_name = "{}/exhale_{}_{}.rst".format(self.root_directory, nspace.kind, nspace.name.replace(":", "_"))
-        # nspace.link_name = nspace.name.replace(":", "_")
-        nspace.link_name = "{}_{}".format(TextNode.qualifyKind(nspace.kind).lower(), nspace.name.replace(":", "_"))
         try:
             with open(nspace.file_name, "w") as gen_file:
                 # generate a link label for every generated file
@@ -1283,11 +1171,6 @@ class TextRoot(object):
                 gen_file.write("{}{}{}\n\n".format(link_declaration, header, children_string))
         except:
             exclaimError("Critical error while generating the file for [{}]".format(nspace.file_name))
-
-        # generation of the file needs to happen relative to conf.py, but the remainder
-        # of the time we want to use a toctree or include we want a filename relative
-        # to the location of the exhale generated_api
-        nspace.file_name = nspace.file_name.split("/")[-1]
 
     def generateNamespaceNodeDocuments(self):
         # go through all of the top level namespaces
@@ -1369,8 +1252,20 @@ class TextRoot(object):
         except:
             exclaimError("Unable to create the root api file / header: {}".format(self.full_root_file_path))
 
+    def gerrymanderNodeFilenames(self):
+        '''
+        When creating nodes, the filename needs to be relative to ``conf.py``, so it
+        will include `self.root_directory`.  However, when generating the API, the file
+        we are writing to is in the same directory as the generated node files so we
+        need to remove the directory path from a given `Node.file_name` before we can
+        ``.. include`` it or use it in a ``.. toctree``.
+        '''
+        for node in self.all_nodes:
+            node.file_name = node.file_name.split("/")[-1]
+
     def generateAPIRootBody(self):
         try:
+            self.gerrymanderNodeFilenames()
             self.generateViewHierarchies()
             with open(self.full_root_file_path, "a") as generated_index:
                 generated_index.write(
