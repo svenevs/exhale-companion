@@ -405,11 +405,13 @@ class Node:
         self.refid    = breathe_compound.get_refid()
         self.children = []
         if self.kind == "file":
-            self.namespaces_used = []
-            self.includes        = []
-            self.included_by     = [] # (refid, name) tuples for now
-            self.location        = ""
-            self.program_listing = []
+            self.namespaces_used   = []
+            self.includes          = []
+            self.included_by       = [] # (refid, name) tuples for now
+            self.location          = ""
+            self.program_listing   = []
+            self.program_file      = ""
+            self.program_link_name = ""
 
         self.file_name = ""
         self.link_name = ""
@@ -419,7 +421,7 @@ class Node:
     def __lt__(self, other):
         # allows alphabetical sorting within types
         if self.kind == other.kind:
-            return self.name < other.name
+            return self.name.lower() < other.name.lower()
         elif self.kind == "struct" or self.kind == "class":
             if other.kind != "struct" and other.kind != "class":
                 return True
@@ -478,8 +480,16 @@ class Node:
                     opening_li = '<li class="lastChild">'
                 else:
                     opening_li = '<li>'
-                html_link = self.link_name.replace('__', '_').replace('_', '-')
-                html_link = '<a href="{}.html#{}">{}</a>'.format(self.file_name.split('.rst')[0], html_link, self.title)
+                # turn double underscores into underscores, then underscores into hyphens
+                html_link = self.link_name.replace("__", "_").replace("_", "-")
+                # should always have two parts
+                title_as_link_parts = self.title.split(" ")
+                qualifier = title_as_link_parts[0]
+                link_title = title_as_link_parts[1]
+                html_link = '{} <a href="{}.html#{}">{}</a>'.format(qualifier,
+                                                                    self.file_name.split('.rst')[0],
+                                                                    html_link,
+                                                                    link_title)
                 if self.kind == "namespace":
                     next_indent = '  {}'.format(indent)
                     stream.write('{}{}\n{}{}\n{}<ul>\n'.format(indent, opening_li, next_indent, html_link, next_indent))
@@ -974,8 +984,8 @@ class TextRoot(object):
                             if child.kind == "dir":
                                 nodes_remaining.append(child)
 
-        for rm in removals:
-            self.files.remove(rm)
+        # for rm in removals:
+        #     self.files.remove(rm)
 
     def __deep_sort_list(self, lst):
         lst.sort()
@@ -1054,6 +1064,155 @@ class TextRoot(object):
         # to the location of the exhale generated_api
         node.file_name = node.file_name.split("/")[-1]
 
+    def generateFileNodeDocuments(self):
+        line_regex = re.compile(r'.*lineno="(\d+)".*')
+        # quick pre-process to generate file and link names and program listings
+        for f in self.files:
+            f.file_name = "{}/exhale_{}_{}.rst".format(self.root_directory, f.kind, f.name.replace(":", "_"))
+            # nspace.link_name = nspace.name.replace(":", "_")
+            f.link_name = "{}_{}".format(TextNode.qualifyKind(f.kind).lower(), f.name.replace(":", "_"))
+
+            f.program_file = "{}/exhale_program_listing_{}_{}.rst".format(self.root_directory, f.kind, f.name.replace(":", "_"))
+            f.program_link_name = "program_listing_{}_{}".format(TextNode.qualifyKind(f.kind).lower(), f.name.replace(":", "_"))
+
+            full_program_listing = '.. code-block:: cpp\n\n'
+            code_lines = [] # (integer line number, text code)
+
+            # full_program_listing = '{}   <programlisting>'.format(full_program_listing)
+            for pgf_line in f.program_listing:
+                line_match = line_regex.match(pgf_line)
+                if line_match is not None:
+                    line_number = line_match.groups()[0]
+                else:
+                    continue
+                fixed_whitespace = re.sub(r'<sp/>', ' ', pgf_line)
+                # for our purposes, this is good enough: http://stackoverflow.com/a/4869782/3814202
+                no_html_tags = re.sub(r'<[^<]+?>', '', fixed_whitespace)
+                revive_lt = re.sub(r'&lt;', '<', no_html_tags)
+                revive_gt = re.sub(r'&gt;', '>', revive_lt)
+                revive_amp = re.sub(r'&amp;', '&', revive_gt)
+                # final_trim = re.sub(r'\n\n', '\n', revive_amp)
+                full_program_listing = "{}   {}".format(full_program_listing, revive_amp)
+                code_lines.append((line_number, revive_amp))
+
+            for cl in code_lines:
+                print(cl)
+            # sys.exit(0)
+
+                # full_program_listing = "{}   {}\n".format(full_program_listing, final_trim)
+
+            try:
+                with open(f.program_file, "w") as gen_file:
+                    # generate a link label for every generated file
+                    link_declaration = ".. _{}:\n\n".format(f.program_link_name)
+                    # every generated file must have a header for sphinx to be happy
+                    f.title = "Program Listing for {} {}".format(TextNode.qualifyKind(f.kind), f.name)
+                    header = "{}\n{}\n\n".format(f.title, EXHALE_FILE_HEADING)
+                    return_link = "- Return to documentation for :ref:`{}`\n\n".format(f.link_name)
+                    # generate the headings and links for the children
+                    # children_string = self.generateNamespaceChildrenString(nspace)
+                    # write it all out
+                    gen_file.write("{}{}{}{}\n\n".format(link_declaration, header, return_link, full_program_listing))
+            except:
+                exclaimError("Critical error while generating the file for [{}]".format(f.file_name))
+
+            f.program_file = f.program_file.split("/")[-1]
+
+
+        for f in self.files:
+            # sort the children
+            nsp_namespaces = []
+            nsp_structs    = []
+            nsp_classes    = []
+            nsp_functions  = []
+            nsp_typedefs   = []
+            nsp_unions     = []
+            nsp_variables  = []
+            for child in f.children:
+                if child.kind == "struct":
+                    nsp_structs.append(child)
+                elif child.kind == "class":
+                    nsp_classes.append(child)
+                elif child.kind == "function":
+                    nsp_functions.append(child)
+                elif child.kind == "typedef":
+                    nsp_typedefs.append(child)
+                elif child.kind == "union":
+                    nsp_unions.append(child)
+                elif child.kind == "variable":
+                    nsp_variables.append(child)
+
+            # self.namespaces_used = []
+            # self.includes        = []
+            # self.included_by     = [] # (refid, name) tuples for now
+            # self.location        = ""
+            # self.program_listing = []
+
+            if len(f.location) > 0:
+                file_definition = "Definition (``{}``)\n{}\n\n- :ref:`{}`\n\n".format(f.location, EXHALE_SECTION_HEADING, f.program_link_name)
+            else:
+                file_definition = ""
+
+            if len(f.includes) > 0:
+                file_includes = "Includes\n{}\n\n".format(EXHALE_SECTION_HEADING)
+                for incl in sorted(f.includes):
+                    local_file = None
+                    for incl_file in self.files:
+                        if incl in incl_file.location:
+                            local_file = incl_file
+                            break
+                    if local_file is not None:
+                        file_includes = "{}- ``{}`` (:ref:`{}`)\n".format(file_includes, incl, local_file.link_name)
+                    else:
+                        file_includes = "{}- ``{}``\n".format(file_includes, incl)
+            else:
+                file_includes = ""
+
+            if len(f.included_by) > 0:
+                file_included_by = "Included By\n{}\n\n".format(EXHALE_SECTION_HEADING)
+                for incl_ref, incl_name in f.included_by:
+                    for incl_file in self.files:
+                        if incl_ref == incl_file.refid:
+                            file_included_by = "{}- :ref:`{}`\n".format(file_included_by, incl_file.link_name)
+                            break
+            else:
+                file_included_by = ""
+
+
+            # generate their headings if they exist
+            children_string = self.generateSortedChildListString("Namespaces", "", f.namespaces_used)
+            children_string = self.generateSortedChildListString("Classes", children_string, nsp_structs + nsp_classes)
+            children_string = self.generateSortedChildListString("Functions", children_string, nsp_functions)
+            children_string = self.generateSortedChildListString("Typedefs", children_string, nsp_typedefs)
+            children_string = self.generateSortedChildListString("Unions", children_string, nsp_unions)
+            children_string = self.generateSortedChildListString("Variables", children_string, nsp_variables)
+
+            qualifier = TextNode.qualifyKind(f.kind)
+            if qualifier != "":
+                qualifier = "{} : ".format(qualifier)
+            else:
+                print("**********************{}*******************".format(f.name))
+
+            try:
+                with open(f.file_name, "w") as gen_file:
+                    # generate a link label for every generated file
+                    link_declaration = ".. _{}:\n\n".format(f.link_name)
+                    # every generated file must have a header for sphinx to be happy
+                    f.title = "{} {}".format(TextNode.qualifyKind(f.kind), f.name)
+                    header = "{}\n{}\n\n".format(f.title, EXHALE_FILE_HEADING)
+                    # generate the headings and links for the children
+                    # children_string = self.generateNamespaceChildrenString(nspace)
+                    # write it all out
+                    gen_file.write("{}{}{}{}{}{}\n\n".format(link_declaration, header, file_definition, file_includes, file_included_by, children_string))
+            except:
+                exclaimError("Critical error while generating the file for [{}]".format(f.file_name))
+
+            # generation of the file needs to happen relative to conf.py, but the remainder
+            # of the time we want to use a toctree or include we want a filename relative
+            # to the location of the exhale generated_api
+            f.file_name = f.file_name.split("/")[-1]
+
+
     def generateNodeDocuments(self):
         for cl in self.class_like:
             self.generateSingleNodeRST(cl)
@@ -1068,6 +1227,7 @@ class TextRoot(object):
         for v in self.variables:
             self.generateSingleNodeRST(v)
         self.generateNamespaceNodeDocuments()
+        self.generateFileNodeDocuments()
 
     def generateSortedChildListString(self, section_title, previous_string, lst):
         if lst:
@@ -1113,7 +1273,6 @@ class TextRoot(object):
         children_string = self.generateSortedChildListString("Variables", children_string, nsp_variables)
 
         return children_string
-
 
     def generateSingleNamespace(self, nspace):
         qualifier = TextNode.qualifyKind(nspace.kind)
@@ -1229,18 +1388,27 @@ class TextRoot(object):
             self.generateViewHierarchies()
             with open(self.full_root_file_path, "a") as generated_index:
                 generated_index.write(
-                    ".. include:: {}\n".format(self.class_view_file.split("/")[-1])
+                    ".. include:: {}\n\n".format(self.class_view_file.split("/")[-1])
                     # "   :maxdepth: {}\n\n"
                     # "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, self.class_view_file.split("/")[-1])
                 )
 
+                generated_index.write("All Files\n{}\n\n".format(EXHALE_SECTION_HEADING))
+
+                for f in sorted(self.files):
+                    generated_index.write(
+                        ".. toctree::\n"
+                        "   :maxdepth: {}\n\n"
+                        "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, f.file_name)
+                    )
+
                 # generated_index.write(views)
-                # for n in self.namespaces:
-                #         generated_index.write(
-                #             ".. toctree::\n"
-                #             "   :maxdepth: {}\n\n"
-                #             "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, n.file_name)
-                #         )
+                for n in self.namespaces:
+                    generated_index.write(
+                        ".. toctree::\n"
+                        "   :maxdepth: {}\n\n"
+                        "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, n.file_name)
+                    )
 
                 # for cl in self.class_like:
                 #     generated_index.write(

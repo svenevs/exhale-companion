@@ -30,6 +30,19 @@
     </script>
 
 
+    <script>
+$(function() {
+    $(".fragment").each(function(i,node) {
+        var $node = $(node);
+        $node.html("<pre><code class='" +
+                   $node.attr("class")+"'>" +
+                   $node.text()+"</code></pre>");
+        hljs.highlightBlock(node);
+    });
+});
+</script>
+
+
     <!-- Show hide program listings -->
     <script type="text/javascript">
         $(document).ready(function() {
