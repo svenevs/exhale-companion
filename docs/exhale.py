@@ -1328,7 +1328,8 @@ class TextRoot(object):
         directory_view_stream = cStringIO.StringIO()
 
         for d in self.dirs:
-            d.toDirectoryView(0, directory_view_stream, treeView)
+            # d.toDirectoryView(0, directory_view_stream, treeView)
+            d.inDirectoryView()
 
         #
         # Add everything that was not nested in a namespace.
@@ -1339,11 +1340,20 @@ class TextRoot(object):
             if not f.in_directory_view:
                 missing.append(f)
 
-        idx = 0
-        last_missing_child = len(missing) - 1
-        for m in missing:
-            m.toDirectoryView(0, directory_view_stream, treeView, idx == last_missing_child)
-            idx += 1
+        found_missing = len(missing) > 0
+        if found_missing:
+            for d in self.dirs:
+                d.toDirectoryView(0, directory_view_stream, treeView)
+
+            idx = 0
+            last_missing_child = len(missing) - 1
+            for m in missing:
+                m.toDirectoryView(0, directory_view_stream, treeView, idx == last_missing_child)
+                idx += 1
+        else:
+            last_dir_index = len(self.dirs) - 1
+            for idx in rg(last_dir_index + 1):
+                d.toDirectoryView(0, directory_view_stream, treeView, idx == last_dir_index)
 
         directory_view_string = directory_view_stream.getvalue()
         directory_view_stream.close()
