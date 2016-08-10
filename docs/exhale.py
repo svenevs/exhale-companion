@@ -279,8 +279,9 @@ class Node:
 
         self.file_name = None
         self.link_name = None
+        self.title     = None
         self.in_class_view = False
-        self.title = ""
+        self.in_directory_view = False
 
     def __lt__(self, other):
         # allows alphabetical sorting within types
@@ -339,6 +340,7 @@ class Node:
             for c in self.children:
                 if c.inClassView():
                     return True
+            return False
         else:
             self.in_class_view = True
             return self.kind == "struct" or self.kind == "class" or \
@@ -405,6 +407,77 @@ class Node:
                 if treeView:
                     stream.write("  {}</ul>\n{}</li>\n".format(indent, indent))
 
+    def inDirectoryView(self):
+        if self.kind == "file":
+            self.in_directory_view = True
+            return True
+        elif self.kind == "dir":
+            for c in self.children:
+                if c.inDirectoryView():
+                    return True
+        return False
+
+    def toDirectoryView(self, level, stream, treeView, lastChild=False):
+        if self.inDirectoryView():
+            if not treeView:
+                stream.write("{}- :ref:`{}`\n".format('    ' * level, self.link_name))
+            else:
+                indent = '  ' * (level * 2)
+                if lastChild:
+                    opening_li = '<li class="lastChild">'
+                else:
+                    opening_li = '<li>'
+                # turn double underscores into underscores, then underscores into hyphens
+                html_link = self.link_name.replace("__", "_").replace("_", "-")
+                # should always have two parts
+                title_as_link_parts = self.title.split(" ")
+                qualifier = title_as_link_parts[0]
+                link_title = title_as_link_parts[1]
+                html_link = '{} <a href="{}.html#{}">{}</a>'.format(qualifier,
+                                                                    self.file_name.split('.rst')[0],
+                                                                    html_link,
+                                                                    link_title)
+                if self.kind == "dir":
+                    next_indent = '  {}'.format(indent)
+                    stream.write('{}{}\n{}{}\n{}<ul>\n'.format(indent, opening_li, next_indent, html_link, next_indent))
+                else:
+                    stream.write('{}{}{}</li>\n'.format(indent, opening_li, html_link))
+
+            # include the relevant children (class like or nested namespaces)
+            if self.kind == "dir":
+                # pre-process and find everything that is relevant
+                kids    = []
+                dirs = []
+                for c in self.children:
+                    if c.inDirectoryView():
+                        if c.kind == "dir":
+                            dirs.append(c)
+                        elif c.kind == "file":
+                            kids.append(c)
+
+                # always put nested namespaces last; parent dictates to the child if
+                # they are the last child being printed
+                kids.sort()
+                num_kids = len(kids)
+
+                dirs.sort()
+                num_dirs = len(dirs)
+
+                last_child_index = num_kids + num_dirs - 1
+                child_idx = 0
+
+                for k in kids:
+                    k.toDirectoryView(level + 1, stream, treeView, child_idx == last_child_index)
+                    child_idx += 1
+
+                for n in dirs:
+                    n.toDirectoryView(level + 1, stream, treeView, child_idx == last_child_index)
+                    child_idx += 1
+
+                # now that all of the children haven been written, close the tags
+                if treeView:
+                    stream.write("  {}</ul>\n{}</li>\n".format(indent, indent))
+
 
 class TextRoot(object):
     """docstring for TextRoot"""
@@ -433,6 +506,9 @@ class TextRoot(object):
 
         self.class_view_file = "{}.rst".format(
             self.full_root_file_path.replace(self.root_file_name, "class_view_hierarchy")
+        )
+        self.directory_view_file = "{}.rst".format(
+            self.full_root_file_path.replace(self.root_file_name, "directory_view_hierarchy")
         )
 
 
@@ -1247,9 +1323,49 @@ class TextRoot(object):
         with open(self.class_view_file, "w") as cvf:
             cvf.write("Class Hierarchy\n{}\n\n{}\n\n".format(EXHALE_SECTION_HEADING, class_view_string))
 
+    def generateDirectoryView(self):
+        treeView = True
+        directory_view_stream = cStringIO.StringIO()
+
+        for d in self.dirs:
+            d.toDirectoryView(0, directory_view_stream, treeView)
+
+        #
+        # Add everything that was not nested in a namespace.
+        #
+        missing = []
+        # files
+        for f in sorted(self.files):
+            if not f.in_directory_view:
+                missing.append(f)
+
+        idx = 0
+        last_missing_child = len(missing) - 1
+        for m in missing:
+            m.toDirectoryView(0, directory_view_stream, treeView, idx == last_missing_child)
+            idx += 1
+
+        directory_view_string = directory_view_stream.getvalue()
+        directory_view_stream.close()
+
+        if treeView:
+            indented = re.sub(r'(.+)', r'        \1', directory_view_string)
+            directory_view_string = \
+                '.. raw:: html\n\n' \
+                '   <ul class="treeView">\n' \
+                '     <li>\n' \
+                '       <ul class="collapsibleList">\n' \
+                '{}' \
+                '       </ul><!-- collapsibleList -->\n' \
+                '     </li><!-- only tree view element -->\n' \
+                '   </ul><!-- treeView -->\n'.format(indented)
+
+        with open(self.directory_view_file, "w") as dvf:
+            dvf.write("Class Hierarchy\n{}\n\n{}\n\n".format(EXHALE_SECTION_HEADING, directory_view_string))
+
     def generateViewHierarchies(self):
         self.generateClassView()
-        # return "{}\n\n".format(class_view)
+        self.generateDirectoryView()
 
     def generateAPIRootHeader(self):
         try:
@@ -1284,8 +1400,10 @@ class TextRoot(object):
             with open(self.full_root_file_path, "a") as generated_index:
                 generated_index.write(
                     ".. include:: {}\n\n".format(self.class_view_file.split("/")[-1])
-                    # "   :maxdepth: {}\n\n"
-                    # "   {}\n\n".format(EXHALE_API_TOCTREE_MAX_DEPTH, self.class_view_file.split("/")[-1])
+                )
+
+                generated_index.write(
+                    ".. include:: {}\n\n".format(self.directory_view_file.split("/")[-1])
                 )
 
                 generated_index.write("All Files\n{}\n\n".format(EXHALE_SECTION_HEADING))
