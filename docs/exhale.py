@@ -2390,6 +2390,17 @@ class ExhaleRoot:
                         gen_file.write("{}{}{}{}\n\n".format(
                             link_declaration, header, return_link, full_program_listing)
                         )
+
+                        #
+                        # TMP
+                        #
+                        gen_file.write("Testing Doxygen XML\n{}\n\n".format(EXHALE_SECTION_HEADING))
+                        doxy_xml_path = "{}{}.xml".format(EXHALE_API_DOXY_OUTPUT_DIR, f.refid)
+                        gen_file.write("- The xml is located at: ``{}``".format(doxy_xml_path))
+                        gen_file.write("\n\nThe code in this file is:\n\n.. code-block:: xml\n\n")
+                        with open(doxy_xml_path, "r") as doxy_xml:
+                            for line in doxy_xml:
+                                gen_file.write("   {}".format(line))
                 except:
                     exclaimError("Critical error while generating the file for [{}]".format(f.file_name))
             else:
