@@ -304,22 +304,21 @@ texinfo_documents = [
 #texinfo_no_detailmenu = False
 
 
-def generateDoxygenXML():
+def generateDoxygenXML(stripPath):
     '''
     Generates the doxygen xml files used by breathe and exhale.  Approach modified from:
 
     - https://github.com/fmtlib/fmt/blob/master/doc/build.py
 
     The differences are in some of the arguments to Doxygen.
+
+    :param stripPath:
+        There seem to be issues with STRIP_FROM_PATH on read the docs, likely because
+        of the virtual environment or something.  For local builds, the variable has
+        the desired effect, but if on RTD you need to send exhale this information.
     '''
     from subprocess import PIPE, Popen
     try:
-        # Hosting on RTD seems to be having trouble with just STRIP_FROM_PATH = ..
-        if not on_rtd:
-            strip_path = os.path.abspath("..")
-        else:
-            strip_path = "/home/docs/checkouts/readthedocs.org/user_builds/my-favorite-documentation-test/checkouts/latest"
-
         doxygen_cmd = ["doxygen", "-"]# "-" tells Doxygen to read configs from stdin
         doxygen_proc = Popen(doxygen_cmd, stdin=PIPE)
         doxygen_proc.communicate(input=r'''
@@ -354,7 +353,7 @@ def generateDoxygenXML():
             PREDEFINED            += NAMESPACE_END(arbitrary)="}"
             PREDEFINED            += DOXYGEN_SHOULD_SKIP_THIS
             PREDEFINED            += DOXYGEN_DOCUMENTATION_BUILD
-        ''' % strip_path)
+        ''' % stripPath)
         doxygen_proc.stdin.close()
         if doxygen_proc.wait() != 0:
             raise RuntimeError("Non-zero return code from 'doxygen'...")
@@ -364,7 +363,8 @@ def generateDoxygenXML():
 
 # setup is called auto-magically for you by Sphinx
 def setup(app):
-    generateDoxygenXML()
+    stripPath = ".."
+    generateDoxygenXML(stripPath)
 
     # generate description text for the library api
     libraryDescription = textwrap.dedent('''
@@ -390,7 +390,8 @@ def setup(app):
         "rootFileTitle"              : "Library API",
         "fullToctreeMaxDepth"        : 1,
         "createTreeView"             : True,
-        "afterTitleDescription"      : libraryDescription
+        "afterTitleDescription"      : libraryDescription,
+        "doxygenStripFromPath"       : stripPath
     }
 
     # import the exhale module from the current directory and generate the api

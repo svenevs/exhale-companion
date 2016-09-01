@@ -56,6 +56,11 @@ file is calling `generate`.  This value **must** be set for `generate` to be abl
 anything.
 '''
 
+EXHALE_API_DOXYGEN_STRIP_FROM_PATH = None # DO NOT EXPOSE
+'''
+Accounts for broken STRIP_FROM_PATH handling on RTD.
+'''
+
 EXHALE_GENERATE_BREATHE_FILE_DIRECTIVES = False # DO NOT EXPOSE
 '''
 Currently, Exhale (I...) do not know how to extract the documentation string for a given
@@ -209,6 +214,15 @@ def generate(exhaleArgs):
         The custom specification function to override the default behavior of exhale.
         Please refer to the :func:`exhale.specificationsForKind` documentation.
 
+    **key**: ``"doxygenStripFromPath"`` --- value type: ``str``
+        When building on Read the Docs, there seem to be issues regarding the Doxygen
+        variable ``STRIP_FROM_PATH`` when built remotely.  That is, it isn't stripped
+        at all.  Provide me with a string path (e.g. ".."), and I will strip this for
+        you for the File nodes being generated.  I will use the exact value of
+        ``os.path.abspath("..")`` in the example above, so you can supply either a
+        relative or absolute path.  The File view hierarchy **will** break if you do
+        not give me a value for this.
+
     :raises ValueError:
         If the required dictionary arguments are not present, or any of the (key, value)
         pairs are invalid.
@@ -292,6 +306,17 @@ def generate(exhaleArgs):
             raise ValueError("Your custom specification function did not return a string...")
         global EXHALE_CUSTOM_SPECIFICATIONS_FUNCTION
         EXHALE_CUSTOM_SPECIFICATIONS_FUNCTION = customSpecificationFunction
+
+    if "doxygenStripFromPath" in exhaleArgs:
+        doxygenStripFromPath = exhaleArgs["doxygenStripFromPath"]
+        if type(doxygenStripFromPath) is not str:
+            raise ValueError("The type of the value for the key 'doxygenStripFromPath' must be a string.")
+        try:
+            strip = os.path.abspath(doxygenStripFromPath)
+        except Exception as e:
+            raise e
+        global EXHALE_API_DOXYGEN_STRIP_FROM_PATH
+        EXHALE_API_DOXYGEN_STRIP_FROM_PATH = strip
 
     # input gathered, try creating the breathe root compound
     try:
@@ -1820,6 +1845,13 @@ class ExhaleRoot:
         # IMPORTANT: do not set the parent field of anything being added as a child to the file
         #
 
+        # hack to make things work right on RTD
+        if EXHALE_API_DOXYGEN_STRIP_FROM_PATH is not None:
+            for f in self.files:
+                f.location = f.location.replace(EXHALE_API_DOXYGEN_STRIP_FROM_PATH, "")
+                if f.location[0] == "/":
+                    f.location = f.location[1:]
+
         # now that we have parsed all the listed refid's in the doxygen xml, reparent
         # the nodes that we care about
         for f in self.files:
@@ -2390,17 +2422,6 @@ class ExhaleRoot:
                         gen_file.write("{}{}{}{}\n\n".format(
                             link_declaration, header, return_link, full_program_listing)
                         )
-
-                        #
-                        # TMP
-                        #
-                        gen_file.write("Testing Doxygen XML\n{}\n\n".format(EXHALE_SECTION_HEADING))
-                        doxy_xml_path = "{}{}.xml".format(EXHALE_API_DOXY_OUTPUT_DIR, f.refid)
-                        gen_file.write("- The xml is located at: ``{}``".format(doxy_xml_path))
-                        gen_file.write("\n\nThe code in this file is:\n\n.. code-block:: xml\n\n")
-                        with open(doxy_xml_path, "r") as doxy_xml:
-                            for line in doxy_xml:
-                                gen_file.write("   {}".format(line))
                 except:
                     exclaimError("Critical error while generating the file for [{}]".format(f.file_name))
             else:
