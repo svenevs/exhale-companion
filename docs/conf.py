@@ -318,7 +318,7 @@ def generateDoxygenXML():
         if not on_rtd:
             strip_path = os.path.abspath("..")
         else:
-            strip_path = "/home/docs/checkouts/readthedocs.org/user_builds/fake-nanogui/checkouts/latest"
+            strip_path = "/home/docs/checkouts/readthedocs.org/user_builds/my-favorite-documentation-test/checkouts/latest"
 
         doxygen_cmd = ["doxygen", "-"]# "-" tells Doxygen to read configs from stdin
         doxygen_proc = Popen(doxygen_cmd, stdin=PIPE)
