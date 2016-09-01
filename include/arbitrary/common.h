@@ -214,7 +214,7 @@ namespace first {
 /**
  * \brief A common function that would be used with ..doxygenfunction::.
  *
- * Does absolutely nothing.
+ * Does absolutely nothing, but this is a **bold** statement.
  *
  * \param params
  * Does whatever you want it to.
