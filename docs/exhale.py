@@ -146,6 +146,17 @@ def generate(exhaleArgs):
         The title to be written at the top of ``rootFileName``, which will appear in
         your file including it in the ``toctree`` directive.
 
+    **key**: ``"doxygenStripFromPath"`` --- value type: ``str``
+        When building on Read the Docs, there seem to be issues regarding the Doxygen
+        variable ``STRIP_FROM_PATH`` when built remotely.  That is, it isn't stripped at
+        all.  Provide me with a string path (e.g. ``".."``), and I will strip this for
+        you for the File nodes being generated.  I will use the exact value of
+        ``os.path.abspath("..")`` in the example above, so you can supply either a
+        relative or absolute path.  The File view hierarchy **will** break if you do
+        not give me a value for this, and therefore I hesitantly require this argument.
+        The value ``".."`` assumes that ``conf.py`` is in a ``docs/`` or similar folder
+        exactly one level below the repository's root.
+
     **Additional Options:**
 
     **key**: ``"afterTitleDescription"`` --- value type: ``str``
@@ -214,15 +225,6 @@ def generate(exhaleArgs):
         The custom specification function to override the default behavior of exhale.
         Please refer to the :func:`exhale.specificationsForKind` documentation.
 
-    **key**: ``"doxygenStripFromPath"`` --- value type: ``str``
-        When building on Read the Docs, there seem to be issues regarding the Doxygen
-        variable ``STRIP_FROM_PATH`` when built remotely.  That is, it isn't stripped
-        at all.  Provide me with a string path (e.g. ".."), and I will strip this for
-        you for the File nodes being generated.  I will use the exact value of
-        ``os.path.abspath("..")`` in the example above, so you can supply either a
-        relative or absolute path.  The File view hierarchy **will** break if you do
-        not give me a value for this.
-
     :raises ValueError:
         If the required dictionary arguments are not present, or any of the (key, value)
         pairs are invalid.
@@ -259,6 +261,18 @@ def generate(exhaleArgs):
     rootFileTitle = exhaleArgs["rootFileTitle"]
     if type(rootFileTitle) is not str:
         raise ValueError("The type of the value for the key 'rootFileTitle' must be a string.")
+
+    if "doxygenStripFromPath" not in exhaleArgs:
+        raise ValueError("'doxygenStripFromPath' must be present in the arguments passed to generate.")
+    doxygenStripFromPath = exhaleArgs["doxygenStripFromPath"]
+    if type(doxygenStripFromPath) is not str:
+        raise ValueError("The type of the value for the key 'doxygenStripFromPath' must be a string.")
+    try:
+        strip = os.path.abspath(doxygenStripFromPath)
+    except Exception as e:
+        raise ValueError("The value for the key 'doxygenStripFromPath' does not appear to be a valid path: {}".format(e))
+    global EXHALE_API_DOXYGEN_STRIP_FROM_PATH
+    EXHALE_API_DOXYGEN_STRIP_FROM_PATH = strip
 
     # gather the optional configurations
     if "afterTitleDescription" in exhaleArgs:
@@ -306,17 +320,6 @@ def generate(exhaleArgs):
             raise ValueError("Your custom specification function did not return a string...")
         global EXHALE_CUSTOM_SPECIFICATIONS_FUNCTION
         EXHALE_CUSTOM_SPECIFICATIONS_FUNCTION = customSpecificationFunction
-
-    if "doxygenStripFromPath" in exhaleArgs:
-        doxygenStripFromPath = exhaleArgs["doxygenStripFromPath"]
-        if type(doxygenStripFromPath) is not str:
-            raise ValueError("The type of the value for the key 'doxygenStripFromPath' must be a string.")
-        try:
-            strip = os.path.abspath(doxygenStripFromPath)
-        except Exception as e:
-            raise e
-        global EXHALE_API_DOXYGEN_STRIP_FROM_PATH
-        EXHALE_API_DOXYGEN_STRIP_FROM_PATH = strip
 
     # input gathered, try creating the breathe root compound
     try:
@@ -2315,20 +2318,22 @@ class ExhaleRoot:
             The string to be written to the namespace node's reStructuredText document.
         '''
         # sort the children
-        nsp_namespaces = []
-        nsp_structs    = []
-        nsp_classes    = []
-        nsp_functions  = []
-        nsp_typedefs   = []
-        nsp_unions     = []
-        nsp_variables  = []
+        nsp_namespaces        = []
+        nsp_nested_class_like = []
+        nsp_enums             = []
+        nsp_functions         = []
+        nsp_typedefs          = []
+        nsp_unions            = []
+        nsp_variables         = []
         for child in nspace.children:
             if child.kind == "namespace":
                 nsp_namespaces.append(child)
-            elif child.kind == "struct":
-                nsp_structs.append(child)
-            elif child.kind == "class":
-                nsp_classes.append(child)
+            elif child.kind == "struct" or child.kind == "class":
+                child.findNestedClassLike(nsp_nested_class_like)
+                child.findNestedEnums(nsp_enums)
+                child.findNestedUnions(nsp_unions)
+            elif child.kind == "enum":
+                nsp_enums.append(child)
             elif child.kind == "function":
                 nsp_functions.append(child)
             elif child.kind == "typedef":
@@ -2338,9 +2343,10 @@ class ExhaleRoot:
             elif child.kind == "variable":
                 nsp_variables.append(child)
 
-        # generate their headings if they exist
+        # generate their headings if they exist (no Defines...that's not a C++ thing...)
         children_string = self.generateSortedChildListString("Namespaces", "", nsp_namespaces)
-        children_string = self.generateSortedChildListString("Classes", children_string, nsp_structs + nsp_classes)
+        children_string = self.generateSortedChildListString("Classes", children_string, nsp_nested_class_like)
+        children_string = self.generateSortedChildListString("Enums", children_string, nsp_enums)
         children_string = self.generateSortedChildListString("Functions", children_string, nsp_functions)
         children_string = self.generateSortedChildListString("Typedefs", children_string, nsp_typedefs)
         children_string = self.generateSortedChildListString("Unions", children_string, nsp_unions)
@@ -2467,7 +2473,7 @@ class ExhaleRoot:
             else:
                 file_included_by = ""
 
-            # generate their headings if they exist
+            # generate their headings if they exist --- DO NOT USE findNested*, these are included recursively
             file_structs    = []
             file_classes    = []
             file_enums      = []

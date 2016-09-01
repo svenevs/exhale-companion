@@ -204,6 +204,22 @@ namespace first {
 
                         /// This is a member double.
                         double d;
+
+                        /**
+                         * \struct nested_struct common.h arbitrary/common.h
+                         *
+                         * \brief This struct will also be in the class hierarchy.
+                         *
+                         * Furthermore, this class should also **only** show up on
+                         * the ``fifth`` namespace page, and none of its parents.
+                         */
+                        struct nested_struct {
+                            /// A nested struct constructor...
+                            nested_struct(float _f) : f(_f) {}
+
+                            /// This is a member float.
+                            float f;
+                        };
                     };
                 }
             }
