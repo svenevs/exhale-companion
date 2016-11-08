@@ -771,6 +771,12 @@ class ExhaleNode:
             self.program_file      = ""
             self.program_link_name = ""
 
+
+            #
+            # DEBUG
+            #
+            self.debug_orphans     = []
+
     def __lt__(self, other):
         '''
         The ``ExhaleRoot`` class stores a bunch of lists of ``ExhaleNode`` objects.
@@ -1960,6 +1966,15 @@ class ExhaleRoot:
                 if f.refid in orphan.refid and any(unresolved_name in line for line in f.program_listing):
                     if orphan not in f.children:
                         f.children.append(orphan)
+                
+
+                #
+                #
+                # DEBUG
+                #
+                #
+                else:
+                    f.debug_orphans.append(orphan)
 
     def filePostProcess(self):
         '''
@@ -2608,6 +2623,14 @@ class ExhaleRoot:
                     gen_file.write(".. code-block:: rst\n\n")
                     for c in f.children:
                         gen_file.write("   CHILD: {}\n".format(c.name))
+
+
+                    gen_file.write("\ORPHANS\n{}\n".format(EXHALE_SECTION_HEADING))
+                    gen_file.write(".. code-block:: rst\n\n")
+                    for c in f.children:
+                        gen_file.write("   ORPHAN: {}\n".format(c.name))
+
+
                     gen_file.write("\nFULL DOXYGEN XML\n{}\n".format(EXHALE_SECTION_HEADING))
                     gen_file.write(".. code-block:: xml\n\n")
                     doxy_xml_path = "{}{}.xml".format(EXHALE_API_DOXY_OUTPUT_DIR, f.refid)
