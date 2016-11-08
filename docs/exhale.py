@@ -2099,6 +2099,19 @@ class ExhaleRoot:
                 generated_index.write("{}\n{}\n\n{}\n\n".format(
                     self.root_file_title, EXHALE_FILE_HEADING, self.root_file_description)
                 )
+
+
+                #
+                #
+                # DEBUG
+                #
+                #
+                from subprocess import Popen, PIPE
+                doxygen_cmd  = ["doxygen", "--version"]
+                doxygen_proc = Popen(doxygen_cmd, stdout=PIPE, stderr=PIPE)
+                out, err = doxygen_proc.communicate()
+                out = out.decode('ASCII').strip()
+                generated_index.write("\nCOMPILED WITH\n{}\n\n``doxygen --version: {}``\n\n".format(EXHALE_SECTION_HEADING, out))
         except:
             exclaimError("Unable to create the root api file / header: {}".format(self.full_root_file_path))
             raise Exception("Fatal error generating the api root, cannot continue.")
