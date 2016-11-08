@@ -1,5 +1,9 @@
 # This file is part of exhale: https://github.com/svenevs/exhale
 #
+# This file was generated on/around (date -Ru):
+#
+#             Tue, 08 Nov 2016 07:18:48 +0000
+#
 # Copyright (c) 2016, Stephen McDowell
 # All rights reserved.
 #
@@ -32,8 +36,13 @@ from breathe.parser.index import parse as breathe_parse
 import sys
 import re
 import os
-import cStringIO
 import itertools
+try:
+    # Python 2 StringIO
+    from cStringIO import StringIO
+except ImportError:
+    # Python 3 StringIO
+    from io import StringIO
 
 __all__ = ['generate', 'ExhaleRoot', 'ExhaleNode', 'exclaimError', 'qualifyKind',
            'kindAsBreatheDirective', 'specificationsForKind', 'EXHALE_FILE_HEADING',
@@ -269,8 +278,10 @@ def generate(exhaleArgs):
         raise ValueError("The type of the value for the key 'doxygenStripFromPath' must be a string.")
     try:
         strip = os.path.abspath(doxygenStripFromPath)
+        if not os.path.isdir(strip):
+            raise ValueError("The value for the key 'doxygenStripFromPath' does not appear to be a valid path")
     except Exception as e:
-        raise ValueError("The value for the key 'doxygenStripFromPath' does not appear to be a valid path: {}".format(e))
+        raise RuntimeError("Error coordinating the 'doxygenStripFromPath' variable: {}".format(e))
     global EXHALE_API_DOXYGEN_STRIP_FROM_PATH
     EXHALE_API_DOXYGEN_STRIP_FROM_PATH = strip
 
@@ -924,6 +935,51 @@ class ExhaleNode:
                 for c in self.children:
                     c.toConsole(level + 1)
 
+    def toStream(self, strm, level, printChildren=True):
+        '''
+        Debugging tool for printing hierarchies / ownership to the console.  Recursively
+        calls children ``toConsole`` if this node is not a directory or a file, and
+        ``printChildren == True``.
+
+        :Parameters:
+            ``level`` (int)
+                The indentation level to be used, should be greater than or equal to 0.
+
+            ``printChildren`` (bool)
+                Whether or not the ``toConsole`` method for the children found in
+                ``self.children`` should be called with ``level+1``.  Default is True,
+                set to False for directories and files.
+        '''
+        indent = "   " * level
+        strm.write("{}- [{}]: {}\n".format(indent, self.kind, self.name))
+        # files are children of directories, the file section will print those children
+        if self.kind == "dir":
+            for c in self.children:
+                c.toStream(strm, level + 1, printChildren=False)
+        elif printChildren:
+            if self.kind == "file":
+                strm.write("{}[[[ location=\"{}\" ]]]\n".format("  " * (level + 1), self.location))
+                for i in self.includes:
+                    strm.write("{}- #include <{}>\n".format("  " * (level + 1), i))
+                for ref, name in self.included_by:
+                    strm.write("{}- included by: [{}]\n".format("  " * (level + 1), name))
+                for n in self.namespaces_used:
+                    n.toStream(strm, level + 1, printChildren=False)
+                for c in self.children:
+                    c.toStream(strm, level + 1)
+            elif self.kind == "class" or self.kind == "struct":
+                relevant_children = []
+                for c in self.children:
+                    if c.kind == "class" or c.kind == "struct" or \
+                       c.kind == "enum"  or c.kind == "union":
+                        relevant_children.append(c)
+
+                for rc in sorted(relevant_children):
+                    rc.toStream(strm, level + 1)
+            elif self.kind != "union":
+                for c in self.children:
+                    c.toStream(strm, level + 1)
+
     def typeSort(self):
         '''
         Sorts ``self.children`` in place, and has each child sort its own children.
@@ -969,7 +1025,7 @@ class ExhaleNode:
                 An integer greater than or equal to 0 representing the indentation level
                 for this node.
 
-            ``stream`` (cStringIO.StringIO)
+            ``stream`` (StringIO)
                 The stream that is being written to by all of the nodes (created and
                 destroyed by the ExhaleRoot object).
 
@@ -1116,7 +1172,7 @@ class ExhaleNode:
                 An integer greater than or equal to 0 representing the indentation level
                 for this node.
 
-            ``stream`` (cStringIO.StringIO)
+            ``stream`` (StringIO)
                 The stream that is being written to by all of the nodes (created and
                 destroyed by the ExhaleRoot object).
 
@@ -2241,7 +2297,7 @@ class ExhaleRoot:
                         # double nested and beyond to appear after their parent by
                         # sorting on their name
                         nested_children.sort(key=lambda x: x.name)
-                        nested_child_stream = cStringIO.StringIO()
+                        nested_child_stream = StringIO()
                         for nc in nested_children:
                             nested_child_stream.write("- :ref:`{}`\n".format(nc.link_name))
 
@@ -2255,6 +2311,26 @@ class ExhaleRoot:
                 # include any specific directives for this doxygen directive
                 specifications = "{}\n\n".format(specificationsForKind(node.kind))
                 gen_file.write("{}{}{}{}".format(link_declaration, header, directive, specifications))
+
+
+
+
+            #
+            #
+            # DEBUG
+            #
+            #
+            if node.kind == "function":
+                full_text = []
+                with open(node.file_name, "r") as generated:
+                    for line in generated:
+                        full_text.append(line)
+
+                with open(node.file_name, "a") as gen_file:
+                    gen_file.write("\nRAW GENERATED RST\n{}\n".format(EXHALE_SECTION_HEADING))
+                    gen_file.write(".. code-block:: rst\n\n")
+                    for line in full_text:
+                        gen_file.write("   {}\n".format(line))
         except:
             exclaimError("Critical error while generating the file for [{}]".format(node.file_name))
 
@@ -2519,6 +2595,26 @@ class ExhaleRoot:
                     gen_file.write("{}{}{}{}\n{}\n{}\n\n".format(
                         link_declaration, header, file_definition, file_includes, file_included_by, children_string)
                     )
+
+
+
+
+                    #
+                    #
+                    # DEBUG
+                    #
+                    #
+                    gen_file.write("\nCHILDREN\n{}\n".format(EXHALE_SECTION_HEADING))
+                    gen_file.write(".. code-block:: rst\n\n")
+                    for c in f.children:
+                        gen_file.write("   CHILD: {}\n".format(c.name))
+                    gen_file.write("\nFULL DOXYGEN XML\n{}\n".format(EXHALE_SECTION_HEADING))
+                    gen_file.write(".. code-block:: xml\n\n")
+                    doxy_xml_path = "{}{}.xml".format(EXHALE_API_DOXY_OUTPUT_DIR, f.refid)
+                    with open(doxy_xml_path, "r") as doxy_file:
+                        for line in doxy_file:
+                            gen_file.write("   {}".format(line))
+
             except:
                 exclaimError("Critical error while generating the file for [{}]".format(f.file_name))
 
@@ -2668,7 +2764,7 @@ class ExhaleRoot:
                 Whether or not to use the collapsibleList version.  See the
                 ``createTreeView`` description in :func:`exhale.generate`.
         '''
-        class_view_stream = cStringIO.StringIO()
+        class_view_stream = StringIO()
 
         for n in self.namespaces:
             n.toClassView(0, class_view_stream, treeView)
@@ -2698,7 +2794,7 @@ class ExhaleRoot:
             # need to restart since there were no missing children found, otherwise the
             # last namespace will not correctly have a lastChild
             class_view_stream.close()
-            class_view_stream = cStringIO.StringIO()
+            class_view_stream = StringIO()
 
             last_nspace_index = len(self.namespaces) - 1
             for idx in range(last_nspace_index + 1):
@@ -2741,7 +2837,7 @@ class ExhaleRoot:
                 Whether or not to use the collapsibleList version.  See the
                 ``createTreeView`` description in :func:`exhale.generate`.
         '''
-        directory_view_stream = cStringIO.StringIO()
+        directory_view_stream = StringIO()
 
         for d in self.dirs:
             d.toDirectoryView(0, directory_view_stream, treeView)
@@ -2763,7 +2859,7 @@ class ExhaleRoot:
             # need to restart since there were no missing children found, otherwise the
             # last directory will not correctly have a lastChild
             directory_view_stream.close()
-            directory_view_stream = cStringIO.StringIO()
+            directory_view_stream = StringIO()
 
             last_dir_index = len(self.dirs) - 1
             for idx in range(last_dir_index + 1):
@@ -2899,6 +2995,15 @@ class ExhaleRoot:
         try:
             with open(self.full_root_file_path, "a") as generated_index:
                 generated_index.write("{}\n\n".format(self.root_file_summary))
+
+
+
+                #
+                #
+                # DEBUG
+                #
+                generated_index.write("\nSTREAM FORMAT\n{}\n\n".format(EXHALE_SECTION_HEADING))
+                self.toStream(generated_index)
         except Exception as e:
             exclaimError("Unable to create the root api summary: {}".format(e))
 
@@ -2927,6 +3032,24 @@ class ExhaleRoot:
         self.consoleFormat("Unions", self.unions)
         self.consoleFormat("Variables", self.variables)
 
+    def toStream(self, strm):
+        '''
+        Convenience function for printing out the entire API being generated to the
+        console.  Unused in the release, but is helpful for debugging ;)
+        '''
+        self.streamFormat(strm, "Classes and Structs", self.class_like)
+        self.streamFormat(strm, "Defines", self.defines)
+        self.streamFormat(strm, "Enums", self.enums)
+        self.streamFormat(strm, "Enum Values", self.enum_values)
+        self.streamFormat(strm, "Functions", self.functions)
+        self.streamFormat(strm, "Files", self.files)
+        self.streamFormat(strm, "Directories", self.dirs)
+        self.streamFormat(strm, "Groups", self.groups)
+        self.streamFormat(strm, "Namespaces", self.namespaces)
+        self.streamFormat(strm, "Typedefs", self.typedefs)
+        self.streamFormat(strm, "Unions", self.unions)
+        self.streamFormat(strm, "Variables", self.variables)
+
     def consoleFormat(self, sectionTitle, lst):
         '''
         Helper method for :func:`exhale.ExhaleRoot.toConsole`.  Prints the given
@@ -2945,3 +3068,12 @@ class ExhaleRoot:
         print("###########################################################")
         for l in lst:
             l.toConsole(0)
+
+    def streamFormat(self, strm, sectionTitle, lst):
+        # strm.write("###########################################################\n")
+        strm.write("\n{}\n{}\n".format(sectionTitle, EXHALE_SUBSECTION_HEADING))
+        # strm.write("###########################################################\n")
+        strm.write("\n.. code-block:: rst\n\n")
+        for l in lst:
+            l.toStream(strm, 1)
+        strm.write("\n")
