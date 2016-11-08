@@ -353,7 +353,7 @@ def generateDoxygenXML(stripPath):
             PREDEFINED            += NAMESPACE_END(arbitrary)="}"
             PREDEFINED            += DOXYGEN_SHOULD_SKIP_THIS
             PREDEFINED            += DOXYGEN_DOCUMENTATION_BUILD
-        ''' % stripPath)
+        ''' % stripPath
         # In python 3 strings and bytes are no longer interchangeable
         if sys.version[0] == "3":
             doxygen_input = bytes(doxygen_input, 'ASCII')
