@@ -372,17 +372,13 @@ def setup(app):
 
     # generate description text for the library api
     libraryDescription = textwrap.dedent('''
-    Welcome to the developer reference to NanoGUI.  The documentation is actively being
-    developed / updated.  If you would like to help document any part of the project
-    you may be familiar with, please refer to the :ref:`developer_contribution` page.
+    Welcome to the developer reference to Exhale Companion.  The code being documented
+    here is largely meaningless and was only created to test various corner cases e.g.
+    nested namespaces and the like.
 
     .. note::
-       Presented below is only the C++ API. If you are using the Python API, the
-       contents below are still applicable for understanding what methods are available.
-       While the documentation for the C++ API is useful as a reference for
-       understanding what a given class does, the Python API does differ.  Please refer
-       to the more concise :ref:`nanogui_example_2` for comparing the differences
-       between the C++ and Python interfaces.
+       The text you are currently reading was fed to `exhale.generate <http://exhale.readthedocs.io/en/latest/reference.html#primary-entry-point>`_
+       via the ``afterTitleDescription`` key.  Full reStructuredText syntax can be used :)
     ''')
 
 
