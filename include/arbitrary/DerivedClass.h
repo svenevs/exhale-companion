@@ -1,9 +1,8 @@
+#pragma once
 /**
  * \file
  * \brief An example of the derivation strategies you could conceivably use.
  */
-#ifndef _ARBITRARY_DERIVED_CLASS_H
-#define _ARBITRARY_DERIVED_CLASS_H
 
 #include <typeinfo>
 #include <iostream>
@@ -14,7 +13,7 @@
 
 NAMESPACE_BEGIN(arbitrary)
 
-///A bitmasking enum for determining what the current camera actions are.
+/// A bitmasking enum for determining what the current camera actions are.
 enum CAMERA_STATES {
     /// Camera state is not changing.
     CAM_NONE      = (1 << 0),
@@ -29,7 +28,13 @@ enum CAMERA_STATES {
 /**
  * \class DerivedClass DerivedClass.h arbitrary/DerivedClass.h
  *
- * \brief A derivation class of `BaseClass` serving as an extremely rudimentary array wrapper.
+ * \brief A derivation class of BaseClass serving as an extremely rudimentary array wrapper.
+ *
+ * \tparam T
+ *     The type of data we are storing.
+ *
+ * \tparam N
+ *     The number of ``T`` data we are storing.
  */
 template <typename T, unsigned int N>
 class DerivedClass : public BaseClass {
@@ -37,14 +42,14 @@ public:
     /// A typedef to see what happens in the hierarchy.
     typedef T SuperParent;
 
-    /// Initializes the `BaseClass` field `BaseClass::some_data` to be the template parameter `N`.
+    /// Initializes the BaseClass field \ref BaseClass::some_data to be the template parameter ``N``.
     DerivedClass() : BaseClass(N) {}
 
     /// The default destructor; does nothing.
     virtual ~DerivedClass() {}
 
     /**
-     * \brief Advances the printing index of this `DerivedClass`.
+     * \brief Advances the printing index of this DerivedClass.
      *
      * Prints a message to the console indicating what ``current_index`` is, and then increases
      * ``current_index`` by one, wrapping around to ``0`` if ``current_index >= N``.
@@ -56,7 +61,7 @@ public:
     }
 
     /**
-     * \brief Inserts `item` and `index` if it is a valid item to add, and a valid index.
+     * \brief Inserts ``item`` and ``index`` if it is a valid item to add, and a valid index.
      *
      * A valid index is in the range ``[0, N)`` where ``N`` is the second template parameter
      * of the class.  A valid index is also, for some arbitrary reason, one that has not
@@ -64,13 +69,13 @@ public:
      * still ``nullptr`` from the constructor initialization.
      *
      * \param item
-     * A pointer to the item that you want to store.
+     *     The next item you want to store.
      *
      * \param index
-     * The index you would like to store `item` at.
+     *     The index you would like to store ``item`` at.
      *
      * \return
-     * Whether or not this `DerivedClass`'s internal storage was modified or not.
+     *     Whether or not this DerivedClass had it's internal storage modified.
      */
     bool insertAt(T &item, unsigned int index) {
         if(index >= N) return false;
@@ -80,15 +85,16 @@ public:
     }
 
     /**
-     * \brief Retrieve a pointer to the item at the specified `index`.
+     * \brief Retrieve a pointer to the item at the specified ``index``.
      *
      * \param index
-     * The index of the item you want to retrieve a pointer to.
+     *     The index of the item you want to retrieve a pointer to.
      *
      * \return
-     * A pointer to the item at `index`.  Returns ``nullptr`` if either the item has not
-     * been set yet by `insertAt`, or if `index` is not in the range ``[0, N)`` where
-     * ``N`` is the second template parameter of this class.
+     *     The item at the specified ``index``.
+     *
+     * \throws std::runtime_error
+     *     If the ``index`` is greater than ``N``.
      */
     const T& itemAt(unsigned int index) {
         if(index >= N) throw std::runtime_error("Invalid index.");
@@ -96,10 +102,33 @@ public:
     }
 
 protected:
+    /// The internal storage of all the items.
     T items[N];
+
+    /// The current printing index.
     unsigned int current_index = 0;
 };
 
-NAMESPACE_END(arbitrary)
+/**
+ * \brief A partial template specialization
+ *
+ * \rst
+ * .. danger::
+ *    This class has no implementation, do not use!  It is **only** for doc testing.
+ * \endrst
+ */
+template <unsigned int N>
+class DerivedClass<arbitrary::arbitrary_struct, N> : public BaseClass {};
 
-#endif // _ARBITRARY_DERIVED_CLASS_H
+/**
+ * \brief A full template specialization
+ *
+ * \rst
+ * .. danger::
+ *    This class has no implementation, do not use!  It is **only** for doc testing.
+ * \endrst
+ */
+template <>
+class DerivedClass<bool, 2> : public BaseClass {};
+
+NAMESPACE_END(arbitrary)

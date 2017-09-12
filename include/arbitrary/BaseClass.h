@@ -1,9 +1,9 @@
+#pragma once
+
 /**
  * \file
  * \brief Defines the `BaseClass` that is to be derived from in all instances.
  */
-#ifndef _ARBITRARY_BASE_CLASS_H
-#define _ARBITRARY_BASE_CLASS_H
 
 #include <arbitrary/common.h>
 
@@ -36,7 +36,7 @@ namespace nested {
         /**
          * \struct int3 BaseClass.h arbitrary/BaseClass.h
          *
-         * \brief The `int3` struct is just a simple coupling of three integers as x, y, and z.
+         * \brief The int3 struct is just a simple coupling of three integers as x, y, and z.
          */
         struct int3 {
             /// Default constructor: (0, 0, 0).
@@ -56,10 +56,6 @@ namespace nested {
 }
 
 /**
- * \addtogroup Common
- *
- * @{
- *
  * \class BaseClass BaseClass.h arbitrary/BaseClass.h
  *
  * A fully documented class for inheriting from.
@@ -75,7 +71,7 @@ public:
     /**
      * \brief A pure virtual method with a brief definition.
      *
-     * Which is then followed by a more descriptive definition.
+     * Which is then followed by a more descriptive "detailed" definition.
      */
     virtual void virtualMethod() = 0;
 
@@ -83,7 +79,7 @@ public:
      * \brief The value of this `BaseClass`'s ``protected`` data.
      *
      * \return
-     * The value of ``protected BaseClass::some_data``.
+     *     The value of \ref BaseClass::some_data
      */
     virtual unsigned int getData() {
         return some_data;
@@ -94,7 +90,7 @@ protected:
      * \brief The only constructor available, initializes ``some_data``.
      *
      * \param data
-     * The number of ``some_data`` this `BaseClass` represents.
+     *     The number of ``some_data`` this BaseClass represents.
      */
     BaseClass(unsigned int data) : some_data(data) {}
 
@@ -102,8 +98,4 @@ protected:
     unsigned int some_data = 0;
 };
 
-/** @} */
-
 NAMESPACE_END(arbitrary)
-
-#endif // _ARBITRARY_BASE_CLASS_H
