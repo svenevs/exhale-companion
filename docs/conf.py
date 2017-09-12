@@ -460,7 +460,7 @@ def setup(app):
             requirements.append(line)
 
     with open("the_requirements.rst", "w") as the_req:
-        the_req.write(".. code-block:: none\n\n")
+        the_req.write(".. code-block:: nginx\n\n")
         the_req.write(prefix("   ", "".join(l for l in requirements)))
         the_req.write("\n")
 
