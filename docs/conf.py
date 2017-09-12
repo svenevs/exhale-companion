@@ -453,3 +453,14 @@ def setup(app):
             file.write(prefix("   ", "".join(l for l in lines)))
             file.write("\n")
 
+    # write out the requirements used
+    requirements = []
+    with open("requirements.txt", "r") as req:
+        for line in req:
+            requirements.append(line)
+
+    with open("the_requirements.rst", "w") as the_req:
+        the_req.write(".. code-block:: none\n\n")
+        the_req.write(prefix("   ", "".join(l for l in requirements)))
+        the_req.write("\n")
+

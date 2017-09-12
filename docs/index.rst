@@ -39,8 +39,14 @@ How this Version of ExhaleCompanion was Created
 For convenience, I'm going to inline the code used in this configuration from
 ``conf.py`` here.  The two main things you need to do here are
 
-1. Setup the ``breathe`` and ``exhale`` extensions.
-2. Choose your ``html_theme``, which affects what you choose for the ``exhale`` side.
+1. The ``requirements.txt`` used on read the docs.
+2. Setup the ``breathe`` and ``exhale`` extensions.
+3. Choose your ``html_theme``, which affects what you choose for the ``exhale`` side.
+
+``requirements.txt``
+****************************************************************************************
+
+.. include:: the_requirements.rst
 
 .. _extension_setup:
 
