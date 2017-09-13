@@ -1,3 +1,1 @@
-# exhale
-# I broke the package index, this is a temporary fix
-git+git://github.com/svenevs/exhale.git@v0.1.2
+exhale
