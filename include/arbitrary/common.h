@@ -15,8 +15,14 @@
  *
  *    To document a file with directives or other "advanced" syntax, you will need to
  *    use the ``rst`` verbatim environment.  See the description for
- *    :py:data:`exhale.configs.DEFAULT_DOXYGEN_STDIN_BASE` for the definition and usage
+ *    :py:data:`~exhale.configs.DEFAULT_DOXYGEN_STDIN_BASE` for the definition and usage
  *    of this environment.
+ *
+ * .. note::
+ *
+ *   See the :py:func:`~exhale.parse.walk` function for details on what is / is not
+ *   supported in terms of Doxygen documentation constructs for file level documentation.
+ *   When in doubt, simply use ``rst`` / ``endrst`` and bypass Exhale's "miniparser".
  *
  * I can have some C++ code shown:
  *
