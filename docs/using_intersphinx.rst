@@ -81,18 +81,18 @@ Since I've setup intersphinx to point back to the main Exhale site, I'll just li
 some from there.
 
 **Linking to a Python Class**
-    ``:py:class:`~exhale.graph.ExhaleRoot```
-        Links to :py:class:`~exhale.graph.ExhaleRoot`
-    ``:py:class:`ExhaleRoot <exhale.graph.ExhaleRoot>```
-        Links to :py:class:`ExhaleRoot <exhale.graph.ExhaleRoot>`
+    ``:py:class:`exhale.graph.ExhaleRoot```
+        Links to :py:class:`exhale.graph.ExhaleRoot`
+    ``:py:class:`graph.ExhaleRoot <exhale.graph.ExhaleRoot>```
+        Links to :py:class:`graph.ExhaleRoot <exhale.graph.ExhaleRoot>`
     ``:py:class:`~exhale.graph.ExhaleRoot```
         Links to :py:class:`~exhale.graph.ExhaleRoot`
 
 **Linking to a Python Function**
-    ``:py:func:`~exhale.deploy.explode```
-        Links to :py:func:`~exhale.deploy.explode`
-    ``:py:func:`explode <exhale.deploy.explode>```
-        Links to :py:func:`explode <exhale.deploy.explode>`
+    ``:py:func:`exhale.deploy.explode```
+        Links to :py:func:`exhale.deploy.explode`
+    ``:py:func:`deploy.explode <exhale.deploy.explode>```
+        Links to :py:func:`deploy.explode <exhale.deploy.explode>`
     ``:py:func:`~exhale.deploy.explode```
         Links to :py:func:`~exhale.deploy.explode`
 
@@ -200,7 +200,7 @@ available for you: the `Sphinx Objects.inv Encoder/Decoder <sphobjinv_>`_.
       # search for the thing you are trying to link to
       $ grep NAMESPACE_BEGIN nanogui_objects.txt | grep -v -- -1
                       vvvvvvv
-      NAMESPACE_BEGIN c:macro 1 generated_api/exhale_define_NAMESPACE_BEGIN.html#c.$ -
+      NAMESPACE_BEGIN c:macro 1 api/define_NAMESPACE_BEGIN.html#c.$ -
                       ^^^^^^^
 
    .. tip::
@@ -213,13 +213,6 @@ available for you: the `Sphinx Objects.inv Encoder/Decoder <sphobjinv_>`_.
       a flag.
 
       .. _syntax: http://sphinx-objectsinv-encoderdecoder.readthedocs.io/en/latest/syntax.html
-
-   .. note::
-
-      I'm updating these docs before the NanoGUI docs.  It is using the old version of
-      the API (the single file library version).  I got rid of ``exhale`` being prefixed
-      to everything in exchange for requiring a
-      :py:data:`~exhale.configs.containmentFolder`.
 
 Custom Links
 ****************************************************************************************
