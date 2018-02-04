@@ -11,6 +11,16 @@
 
 #include <arbitrary/BaseClass.h>
 
+/**
+ * \brief The ``arbitrary`` namespace encapsulates many unrelated classes and functions.
+ *
+ * \rst
+ * .. tip::
+ *
+ *    Documenting code is really fun!  Don't view it as laborious, view it as a moral
+ *    obligation.  And get style points for doing it.
+ * \endrst
+ */
 NAMESPACE_BEGIN(arbitrary)
 
 /// A bitmasking enum for determining what the current camera actions are.
