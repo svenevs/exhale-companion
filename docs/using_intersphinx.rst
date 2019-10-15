@@ -160,7 +160,7 @@ For things like classes that are qualified in namespaces, it should be pretty ea
 you to figure out what the link is by inspection.  However, there is an excellent tool
 available for you: the `Sphinx Objects.inv Encoder/Decoder <sphobjinv_>`_.
 
-.. _sphobjinv: http://sphinx-objectsinv-encoderdecoder.readthedocs.io/en/latest/
+.. _sphobjinv: http://sphobjinv.readthedocs.io/en/latest/
 
 1. Install the utility:
 
@@ -192,7 +192,7 @@ available for you: the `Sphinx Objects.inv Encoder/Decoder <sphobjinv_>`_.
    .. code-block:: console
 
       # decode it so we can search it
-      $ sphobjinv decode nanogui_objects.inv
+      $ sphobjinv convert plain nanogui_objects.inv
 
       Conversion completed.
       'nanogui_objects.inv' decoded to 'nanogui_objects.txt'.
@@ -212,7 +212,7 @@ available for you: the `Sphinx Objects.inv Encoder/Decoder <sphobjinv_>`_.
       argument.  That is, ``-- -1`` just makes it so ``grep`` doesn't think ``-1`` is
       a flag.
 
-      .. _syntax: http://sphinx-objectsinv-encoderdecoder.readthedocs.io/en/latest/syntax.html
+      .. _syntax: http://sphobjinv.readthedocs.io/en/latest/syntax.html
 
 Custom Links
 ****************************************************************************************
