@@ -8,6 +8,7 @@ docs/_build
 docs/conf_extensions.rst
 docs/conf_theme.rst
 docs/the_requirements.rst
+docs/_static
 # Compiled Object files
 *.slo
 *.lo
