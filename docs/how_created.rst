@@ -11,7 +11,7 @@ For convenience, I'm going to inline the code used in this configuration from
 Refer to the `Start to finish for Read the Docs <stffrtd_>`_ tutorial for getting
 everything setup on RTD.
 
-.. _stffrtd: http://exhale.readthedocs.io/en/latest/usage.html#start-to-finish-for-read-the-docs
+.. _stffrtd: https://exhale.readthedocs.io/en/latest/quickstart.html
 
 ``requirements.txt``
 ----------------------------------------------------------------------------------------

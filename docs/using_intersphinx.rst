@@ -23,16 +23,16 @@ First, how you link to things depends on what your `domain`_ is.  In the Exhale
 ``conf.py``:
 
 .. _domain:     http://www.sphinx-doc.org/en/stable/domains.html
-.. _quickstart: http://exhale.readthedocs.io/en/latest/usage.html#quickstart-guide
+.. _quickstart: https://exhale.readthedocs.io/en/latest/quickstart.html
 
 
 .. code-block:: py
 
    # Tell sphinx what the primary language being documented is.
-   primary_domain = 'cpp'
+   primary_domain = "cpp"
 
    # Tell sphinx what the pygments highlight language should be.
-   highlight_language = 'cpp'
+   highlight_language = "cpp"
 
 This will come up in the next section, but is added to ``conf.py`` so it is included
 here.
@@ -44,15 +44,15 @@ the ``conf.py``, this means that I have:
 
    # In addition to `breathe` and `exhale`, use the `intersphinx` extension
    extensions = [
-       'sphinx.ext.intersphinx',
-       'breathe',
-       'exhale'
+       "sphinx.ext.intersphinx",
+       "breathe",
+       "exhale"
    ]
 
    # Specify the baseurls for the projects I want to link to
    intersphinx_mapping = {
-       'exhale':  ('https://exhale.readthedocs.io/en/latest/', None),
-       'nanogui': ('http://nanogui.readthedocs.io/en/latest/', None)
+       "exhale":  ("https://exhale.readthedocs.io/en/latest/", None),
+       "nanogui": ("https://nanogui.readthedocs.io/en/latest/", None)
    }
 
 Linking to Other Sites Using Intersphinx

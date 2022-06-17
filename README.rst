@@ -22,7 +22,7 @@ HTML Theme choices:
 
 .. _companion:  https://github.com/svenevs/exhale-companion
 
-.. _rtd:       http://docs.readthedocs.io/en/latest/theme.html
+.. _rtd:       https://sphinx-rtd-theme.readthedocs.io/en/stable/
 .. _bstrap:    https://ryan-roemer.github.io/sphinx-bootstrap-theme/
 .. _alabaster: https://alabaster.readthedocs.io/en/latest/
 

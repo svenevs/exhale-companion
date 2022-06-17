@@ -5,8 +5,8 @@ Welcome to the companion website for `Exhale`_.  The purpose of this website is 
 a simple example of what your Library API could look like if you follow the
 `start to finish directions <start_to_finish_>`_ to get things hosted on RTD.
 
-.. _Exhale:          http://exhale.readthedocs.io/en/latest/
-.. _start_to_finish: http://exhale.readthedocs.io/en/latest/usage.html#start-to-finish-for-read-the-docs
+.. _Exhale:          https://exhale.readthedocs.io/en/latest/
+.. _start_to_finish: https://exhale.readthedocs.io/en/latest/quickstart.html
 
 .. tip::
 
