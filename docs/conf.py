@@ -53,7 +53,6 @@ exhale_args = {
     ############################################################################
     # Suggested optional arguments.                                            #
     ############################################################################
-    "createTreeView":        True,
     "exhaleExecutesDoxygen": True,
     "exhaleDoxygenStdin": dedent('''
         INPUT       = ../include
@@ -66,10 +65,9 @@ exhale_args = {
     ############################################################################
     # HTML Theme specific configurations.                                      #
     ############################################################################
-    # Fix broken Sphinx RTD Theme 'Edit on GitHub' links
-    # Search for 'Edit on GitHub' on the FAQ:
-    #     http://exhale.readthedocs.io/en/latest/faq.html
-    "pageLevelConfigMeta": ":github_url: https://github.com/svenevs/exhale-companion",
+    # The alabaster build of these docs exists to demonstrate why the tree view
+    # *SHOULD* be set to True ;)
+    "createTreeView": False,
     ############################################################################
     # Main library page layout example configuration.                          #
     ############################################################################
@@ -165,13 +163,12 @@ release = exhale.__version__
 
 # [[[ begin theme marker ]]]
 # The name of the Pygments (syntax highlighting) style to use.
-# `sphinx` works very well with the RTD theme, but you can always change it
 pygments_style = "sphinx"
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = "sphinx_rtd_theme"
+html_theme = "alabaster"
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
